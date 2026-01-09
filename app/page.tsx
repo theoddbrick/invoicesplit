@@ -235,7 +235,7 @@ export default function Home() {
         {/* Discovery Wizard */}
         {showDiscoveryWizard && (
           <DiscoveryWizard
-            existingTemplate={hasActiveProfile ? activeTemplate : undefined}
+            existingTemplate={hasActiveProfile && activeTemplate ? activeTemplate : undefined}
             onComplete={async (template) => {
               await saveTemplate(template);
               await setActiveTemplate(template.id);

@@ -68,8 +68,13 @@ function copySelectedToClipboard(results: InvoiceResult[], fieldOrder: FieldConf
   }
 
   // Create tab-separated values WITHOUT headers (data only)
+  // Wrap each value in ="value" format to prevent Excel scientific notation
   const rows = selectedResults.map(result => 
-    fieldOrder.map(f => result.data![f.key] || "").join("\t")
+    fieldOrder.map(f => {
+      const value = result.data![f.key] || "";
+      // Use ="value" format to force Excel/Sheets to treat as text
+      return `="${value}"`;
+    }).join("\t")
   );
 
   const content = rows.join("\n");
@@ -90,6 +95,7 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
   const [fieldOrder, setFieldOrder] = useState<FieldConfig[]>(DEFAULT_FIELDS);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -138,6 +144,16 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
 
   const selectedCount = selectedRows.size;
   const allSelected = selectedRows.size === results.length && results.length > 0;
+  const allProcessingComplete = results.length > 0 && results.every(r => r.status !== "processing");
+
+  // Auto-select all successful rows when processing completes
+  if (allProcessingComplete && !hasAutoSelected) {
+    const successIndices = results
+      .map((r, idx) => (r.status === "success" ? idx : -1))
+      .filter(idx => idx !== -1);
+    setSelectedRows(new Set(successIndices));
+    setHasAutoSelected(true);
+  }
 
   return (
     <div className="mt-8 space-y-6">
@@ -166,29 +182,31 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
           <button
             id="copy-selected-btn"
             onClick={() => copySelectedToClipboard(results, fieldOrder, selectedRows)}
-            disabled={selectedCount === 0}
+            disabled={!allProcessingComplete || selectedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+            title={!allProcessingComplete ? "Please wait for all files to finish processing" : ""}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            Copy Selected
+            {!allProcessingComplete ? "Processing..." : "Copy Selected"}
           </button>
           <button
             onClick={() => downloadSelectedCSV(results, fieldOrder, selectedRows)}
-            disabled={selectedCount === 0}
+            disabled={!allProcessingComplete || selectedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+            title={!allProcessingComplete ? "Please wait for all files to finish processing" : ""}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Download CSV
+            {!allProcessingComplete ? "Processing..." : "Download CSV"}
           </button>
         </div>
       </div>
 
       {/* Results Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b-2 border-gray-200 dark:border-gray-600">
           <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,9 +216,11 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
           </p>
         </div>
         
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-          <table className="w-full">
-            <thead className="bg-yellow-100 dark:bg-yellow-900/30 sticky top-0 z-10">
+        <div className="relative overflow-hidden">
+          <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+            <table className="w-full border-collapse">
+              <thead className="bg-yellow-100 dark:bg-yellow-900/30 sticky top-0 z-20 shadow-sm"
+                     style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
               <tr>
                 <th className="px-4 py-4 text-center border-r border-gray-300 dark:border-gray-600">
                   <input
@@ -302,8 +322,9 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

@@ -169,13 +169,42 @@ If you experience rate limiting, consider:
 - Adding request throttling
 - Upgrading your AI provider plan
 
+## Privacy & Security
+
+### 🔒 Your Files Are Never Saved
+
+**Guaranteed Privacy:**
+- ✅ Files processed **in memory only** (RAM)
+- ✅ **Zero persistence** - no disk writes, no database
+- ✅ **Immediate cleanup** - data discarded after processing
+- ✅ **No tracking** - no cookies, no local storage
+- ✅ **Open source** - fully auditable code
+
+**Data Flow:**
+1. Upload → Memory buffer (temporary)
+2. Extract text → In-memory processing
+3. AI analysis → Text sent to AI (not the PDF file)
+4. Results returned → JSON response only
+5. Cleanup → All data automatically garbage collected
+
+**Verification:**
+```bash
+# Search codebase for file operations
+grep -r "writeFile\|fs.write\|storage" app/ components/ lib/
+# Result: None found ✅
+```
+
+See [PRIVACY.md](./PRIVACY.md) for complete details.
+
+---
+
 ## Technologies Used
 
 - **Framework**: Next.js 16
 - **UI**: React 19, Tailwind CSS
-- **AI**: Vercel AI SDK, Qwen LLM
-- **PDF Processing**: PDF.js
-- **Deployment**: Vercel
+- **AI**: Alibaba Cloud Model Studio, Qwen-Max
+- **PDF Processing**: pdf-parse (in-memory)
+- **Deployment**: Vercel (serverless, stateless)
 
 ## License
 

@@ -1,6 +1,6 @@
 // Storage abstraction layer - easy migration to Supabase later
 
-import { ExtractionTemplate, DEFAULT_TEMPLATE } from "./templates";
+import { ExtractionTemplate } from "./templates";
 
 /**
  * Abstract storage interface
@@ -10,7 +10,7 @@ export interface TemplateStorage {
   loadTemplates(): Promise<ExtractionTemplate[]>;
   saveTemplate(template: ExtractionTemplate): Promise<void>;
   deleteTemplate(id: string): Promise<void>;
-  getActiveTemplateId(): Promise<string>;
+  getActiveTemplateId(): Promise<string | null>;
   setActiveTemplateId(id: string): Promise<void>;
 }
 
@@ -70,11 +70,11 @@ export class LocalTemplateStorage implements TemplateStorage {
     }
   }
 
-  async getActiveTemplateId(): Promise<string> {
+  async getActiveTemplateId(): Promise<string | null> {
     try {
-      return localStorage.getItem(this.ACTIVE_KEY) || "default";
+      return localStorage.getItem(this.ACTIVE_KEY);
     } catch (error) {
-      return "default";
+      return null;
     }
   }
 

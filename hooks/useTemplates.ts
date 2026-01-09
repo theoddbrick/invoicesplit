@@ -1,16 +1,16 @@
 // Custom hook for template state management
 
 import { useState, useEffect } from "react";
-import { ExtractionTemplate, DEFAULT_TEMPLATE } from "@/lib/templates";
+import { ExtractionTemplate } from "@/lib/templates";
 import { createTemplateStorage } from "@/lib/storage";
 
 /**
  * Hook for managing extraction templates
- * Handles loading, saving, and active template selection
+ * Fully user-driven - no default templates
  */
 export function useTemplates() {
-  const [templates, setTemplates] = useState<ExtractionTemplate[]>([DEFAULT_TEMPLATE]);
-  const [activeId, setActiveId] = useState<string>("default");
+  const [templates, setTemplates] = useState<ExtractionTemplate[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,17 +26,13 @@ export function useTemplates() {
           storage.getActiveTemplateId()
         ]);
         
-        // Always include default template
-        const allTemplates = [DEFAULT_TEMPLATE, ...loadedTemplates.filter(t => t.id !== "default")];
-        
-        setTemplates(allTemplates);
+        setTemplates(loadedTemplates);
         setActiveId(loadedActiveId);
         setIsLoaded(true);
       } catch (error) {
         console.error("Failed to load templates:", error);
-        // Fall back to defaults
-        setTemplates([DEFAULT_TEMPLATE]);
-        setActiveId("default");
+        setTemplates([]);
+        setActiveId(null);
       } finally {
         setIsLoading(false);
       }
@@ -45,7 +41,7 @@ export function useTemplates() {
     loadData();
   }, []);
 
-  const activeTemplate = templates.find(t => t.id === activeId) || DEFAULT_TEMPLATE;
+  const activeTemplate = activeId ? templates.find(t => t.id === activeId) : null;
 
   const saveTemplate = async (template: ExtractionTemplate) => {
     try {
@@ -63,19 +59,15 @@ export function useTemplates() {
   };
 
   const deleteTemplate = async (id: string) => {
-    if (id === "default") {
-      throw new Error("Cannot delete default template");
-    }
-    
     try {
       await storage.deleteTemplate(id);
       
       // Update local state
       setTemplates(templates.filter(t => t.id !== id));
       
-      // If deleted template was active, switch to default
+      // If deleted template was active, clear active
       if (activeId === id) {
-        await setActiveTemplate("default");
+        await setActiveTemplate(null);
       }
       
       return true;
@@ -85,9 +77,11 @@ export function useTemplates() {
     }
   };
 
-  const setActiveTemplate = async (id: string) => {
+  const setActiveTemplate = async (id: string | null) => {
     try {
-      await storage.setActiveTemplateId(id);
+      if (id) {
+        await storage.setActiveTemplateId(id);
+      }
       setActiveId(id);
       return true;
     } catch (error) {

@@ -34,68 +34,25 @@ export interface ExtractionTemplate {
   updatedAt: number;
 }
 
-// Default built-in template (cannot be deleted)
-export const DEFAULT_TEMPLATE: ExtractionTemplate = {
-  id: "default",
-  name: "Standard Invoice",
-  description: "Default invoice extraction with 4 standard fields",
-  fields: [
-    {
-      id: "field-1",
-      name: "Order ID",
-      key: "orderId",
-      description: "Order or booking reference number",
-      required: false,
-      type: "text"
-    },
-    {
-      id: "field-2",
-      name: "Invoice NO.",
-      key: "invoiceNo",
-      description: "Invoice number or ID",
-      required: true,
-      type: "text"
-    },
-    {
-      id: "field-3",
-      name: "Tax Invoice Date",
-      key: "taxInvoiceDate",
-      description: "Invoice date in YYYY-MM-DD format",
-      required: true,
-      type: "date"
-    },
-    {
-      id: "field-4",
-      name: "Invoice Amount",
-      key: "invoiceAmount",
-      description: "Total invoice amount (decimal only, no currency symbols)",
-      required: true,
-      type: "currency"
-    }
-  ],
-  documentType: "invoice",
-  createdAt: Date.now(),
-  updatedAt: Date.now()
-};
+// No default template - fully user-driven discovery
+// Users create profiles through AI discovery process
 
 // LocalStorage utilities
 const STORAGE_KEY_TEMPLATES = "invoicesplit_templates";
 const STORAGE_KEY_ACTIVE = "invoicesplit_active_template";
 
 export function loadTemplates(): ExtractionTemplate[] {
-  if (typeof window === "undefined") return [DEFAULT_TEMPLATE];
+  if (typeof window === "undefined") return [];
   
   try {
     const stored = localStorage.getItem(STORAGE_KEY_TEMPLATES);
-    if (!stored) return [DEFAULT_TEMPLATE];
+    if (!stored) return [];
     
     const templates = JSON.parse(stored) as ExtractionTemplate[];
-    // Always include default template
-    const hasDefault = templates.some(t => t.id === "default");
-    return hasDefault ? templates : [DEFAULT_TEMPLATE, ...templates];
+    return templates;
   } catch (error) {
     console.error("Failed to load templates:", error);
-    return [DEFAULT_TEMPLATE];
+    return [];
   }
 }
 
@@ -103,21 +60,19 @@ export function saveTemplates(templates: ExtractionTemplate[]): void {
   if (typeof window === "undefined") return;
   
   try {
-    // Filter out default template (it's always loaded)
-    const customTemplates = templates.filter(t => t.id !== "default");
-    localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(customTemplates));
+    localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(templates));
   } catch (error) {
     console.error("Failed to save templates:", error);
   }
 }
 
-export function getActiveTemplateId(): string {
-  if (typeof window === "undefined") return "default";
+export function getActiveTemplateId(): string | null {
+  if (typeof window === "undefined") return null;
   
   try {
-    return localStorage.getItem(STORAGE_KEY_ACTIVE) || "default";
+    return localStorage.getItem(STORAGE_KEY_ACTIVE);
   } catch (error) {
-    return "default";
+    return null;
   }
 }
 

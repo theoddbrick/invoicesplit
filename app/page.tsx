@@ -42,6 +42,11 @@ export default function Home() {
   }
 
   const processFilesBatch = async (files: File[]) => {
+    if (!activeTemplate) {
+      alert("Please create an extraction profile first");
+      return;
+    }
+
     const batchSize = 5; // Process 5 files concurrently
     const results: ExtractionResult[] = files.map(file => ({
       fileName: file.name,
@@ -69,7 +74,7 @@ export default function Home() {
 
           try {
             // Use centralized API client with current template
-            const result = await extractDataFromPDF(file, activeTemplate);
+            const result = await extractDataFromPDF(file, activeTemplate!);
             
             // Update with success
             setInvoiceResults(prev => {
@@ -155,20 +160,21 @@ export default function Home() {
           ) : (
             <>
               {/* Profile Info Bar */}
-              <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {activeTemplate.name}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {activeTemplate.fields.length} fields configured
-                    </p>
+              {activeTemplate && (
+                <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {activeTemplate.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {activeTemplate.fields.length} fields configured
+                      </p>
+                    </div>
                   </div>
-                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowDiscoveryWizard(true)}
@@ -190,8 +196,11 @@ export default function Home() {
                   </button>
                 </div>
               </div>
+              )}
 
-              <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
+              {activeTemplate && (
+                <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
+              )}
             </>
           )}
           
@@ -214,7 +223,7 @@ export default function Home() {
             </div>
           )}
 
-          {invoiceResults.length > 0 && (
+          {invoiceResults.length > 0 && activeTemplate && (
             <MultiInvoiceResults 
               results={invoiceResults} 
               activeTemplate={activeTemplate}

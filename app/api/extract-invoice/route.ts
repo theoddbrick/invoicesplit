@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { aiGateway, MODEL_NAME } from "@/lib/ai";
+import { qwenClient, MODEL_NAME } from "@/lib/ai";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // Configure PDF.js worker for Node.js environment
@@ -99,13 +99,13 @@ Please respond ONLY with a valid JSON object in this exact format (no additional
 
 If a field cannot be found, use an empty string "". Be precise and extract exact values from the invoice.`;
 
-    // Use Vercel AI Gateway with Qwen model
-    // The aiGateway client is configured with AI_GATEWAY_API_KEY
+    // Use Alibaba Cloud Model Studio (DashScope) with Qwen-Max
+    // The qwenClient is configured with MODEL_STUDIO_KEY/DASHSCOPE_API_KEY
     const { text } = await generateText({
-      model: aiGateway(MODEL_NAME),
+      model: qwenClient(MODEL_NAME),
       prompt: prompt,
       temperature: 0.1,
-      maxTokens: 500,
+      maxTokens: 1000, // Increased for better response quality
     });
 
     // Parse AI response

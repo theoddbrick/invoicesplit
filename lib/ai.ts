@@ -1,16 +1,16 @@
 import { createOpenAI } from "@ai-sdk/openai";
 
-// Vercel AI Gateway Configuration
-// Using qwen-plus: Best for structured data extraction tasks like invoice processing
-// - Balanced performance and accuracy  
+// Alibaba Cloud Model Studio (DashScope) Configuration
+// Using qwen-max: Most capable model for complex reasoning and structured data
+// - Best accuracy for document understanding and extraction
 // - Excellent for JSON output and structured information
-// - Cost-effective for production use
+// - Optimal for invoice processing with high precision
 
-// Configure AI Gateway client
-export const aiGateway = createOpenAI({
-  apiKey: process.env.AI_GATEWAY_API_KEY,
-  baseURL: "https://gateway.vercel.com/v1",
+// Configure DashScope client with OpenAI-compatible endpoint
+export const qwenClient = createOpenAI({
+  apiKey: process.env.MODEL_STUDIO_KEY || process.env.DASHSCOPE_API_KEY,
+  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
 });
 
-// Model name with provider prefix
-export const MODEL_NAME = "qwen-plus";
+// Using qwen-max for highest accuracy in invoice extraction
+export const MODEL_NAME = "qwen-max";

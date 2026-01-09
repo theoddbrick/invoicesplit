@@ -34,17 +34,16 @@ yarn install
 
 ### 2. Configure Environment Variables
 
-Create a `.env.local` file in the root directory with your Vercel AI Gateway key:
+Create a `.env.local` file in the root directory with your Alibaba Cloud Model Studio API key:
 
 ```env
-AI_GATEWAY_API_KEY=vck_your_vercel_gateway_key_here
+MODEL_STUDIO_KEY=sk-your_dashscope_api_key_here
 ```
 
-Optional configuration:
+Alternative environment variable name (also supported):
 
 ```env
-# Specify AI Model (format: provider/model-name)
-AI_MODEL_NAME=qwen/qwen-plus
+DASHSCOPE_API_KEY=sk-your_dashscope_api_key_here
 ```
 
 ### 3. Run Development Server
@@ -72,53 +71,33 @@ vercel deploy
 
 Or connect your GitHub repository to Vercel for automatic deployments.
 
-## Vercel AI Gateway Setup
+## Alibaba Cloud Model Studio Setup
 
-This project uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/authentication) for AI model access. There are two authentication methods:
+This project uses [Alibaba Cloud Model Studio (DashScope)](https://www.alibabacloud.com/help/en/model-studio/) with the Qwen-Max model for invoice extraction.
 
-### Option 1: API Key Authentication (Recommended for Development)
+### Get Your API Key
 
-1. Go to your [Vercel Dashboard](https://vercel.com/dashboard)
-2. Navigate to the **AI Gateway** tab
-3. Select **API Keys** on the left sidebar
-4. Click **Create key** and generate a new API key
-5. Copy the generated key (starts with `vck_`)
+1. Go to [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com/)
+2. Sign in or create an account
+3. Navigate to **API Keys** section
+4. Create a new API key
+5. Copy the generated key (starts with `sk-`)
 6. Add it to your `.env.local` file:
    ```env
-   AI_GATEWAY_API_KEY=vck_your_key_here
+   MODEL_STUDIO_KEY=sk-your_api_key_here
    ```
 
-When you specify a model id as a plain string, the AI SDK will automatically use the Vercel AI Gateway provider to route the request. The AI Gateway provider looks for the API key in the `AI_GATEWAY_API_KEY` environment variable by default.
+### Model Configuration
 
-### Option 2: OIDC Token Authentication (Automatic in Production)
+The application uses **Qwen-Max** (`qwen-max`), which provides:
+- Highest accuracy for document understanding
+- Best performance for structured data extraction
+- Optimal JSON output generation
+- Superior reasoning for complex invoice formats
 
-For production deployments on Vercel, authentication is handled automatically via OIDC tokens.
-
-For local development with OIDC:
-
-1. Link to a Vercel project:
-   ```bash
-   vercel link
-   ```
-
-2. Pull environment variables (includes OIDC token):
-   ```bash
-   vercel env pull
-   ```
-
-Note: OIDC tokens are valid for 12 hours. Re-run `vercel env pull` when expired.
-
-### Model Selection
-
-The AI Gateway supports multiple providers. Use the format `provider/model-name`:
-
-- **Qwen models**: `qwen/qwen-plus`, `qwen/qwen-turbo`, `qwen/qwen-max`
-- **OpenAI models**: `openai/gpt-4`, `openai/gpt-3.5-turbo`
-- **Anthropic models**: `anthropic/claude-3-opus`
-
-Set your preferred model in `.env.local`:
-```env
-AI_MODEL_NAME=qwen/qwen-plus
+The model is pre-configured and connects via DashScope's OpenAI-compatible endpoint:
+```
+https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 ```
 
 ## Project Structure

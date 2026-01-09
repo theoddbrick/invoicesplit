@@ -80,7 +80,7 @@ export default function Home() {
         </div>
 
         <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>Powered by Vercel AI Gateway & Qwen LLM</p>
+          <p>Powered by Alibaba Cloud Model Studio & Qwen-Max</p>
         </div>
       </div>
     </main>

@@ -21,17 +21,19 @@ const DEFAULT_FIELDS: FieldConfig[] = [
   { key: "invoiceAmount", label: "Invoice Amount" },
 ];
 
-function downloadAllCSV(results: InvoiceResult[], fieldOrder: FieldConfig[]) {
-  const successfulResults = results.filter(r => r.status === "success" && r.data);
+function downloadSelectedCSV(results: InvoiceResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
+  const selectedResults = results.filter((r, idx) => 
+    selectedIndices.has(idx) && r.status === "success" && r.data
+  );
   
-  if (successfulResults.length === 0) {
-    alert("No successful extractions to download");
+  if (selectedResults.length === 0) {
+    alert("No selected rows to download");
     return;
   }
 
-  // Create CSV content
+  // Create CSV content (with headers)
   const headers = ["Filename", ...fieldOrder.map(f => f.label)];
-  const rows = successfulResults.map(result => [
+  const rows = selectedResults.map(result => [
     result.fileName,
     ...fieldOrder.map(f => result.data![f.key] || "")
   ]);
@@ -55,29 +57,30 @@ function downloadAllCSV(results: InvoiceResult[], fieldOrder: FieldConfig[]) {
   document.body.removeChild(link);
 }
 
-function copyAllToClipboard(results: InvoiceResult[], fieldOrder: FieldConfig[]) {
-  const successfulResults = results.filter(r => r.status === "success" && r.data);
+function copySelectedToClipboard(results: InvoiceResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
+  const selectedResults = results.filter((r, idx) => 
+    selectedIndices.has(idx) && r.status === "success" && r.data
+  );
   
-  if (successfulResults.length === 0) {
-    alert("No successful extractions to copy");
+  if (selectedResults.length === 0) {
+    alert("No selected rows to copy");
     return;
   }
 
-  // Create tab-separated values for pasting into spreadsheets
-  const headers = ["Filename", ...fieldOrder.map(f => f.label)].join("\t");
-  const rows = successfulResults.map(result => 
-    [result.fileName, ...fieldOrder.map(f => result.data![f.key] || "")].join("\t")
+  // Create tab-separated values WITHOUT headers (data only)
+  const rows = selectedResults.map(result => 
+    fieldOrder.map(f => result.data![f.key] || "").join("\t")
   );
 
-  const content = [headers, ...rows].join("\n");
+  const content = rows.join("\n");
   
   navigator.clipboard.writeText(content).then(() => {
-    const button = document.getElementById('copy-all-btn');
+    const button = document.getElementById('copy-selected-btn');
     if (button) {
       const originalText = button.textContent;
       button.textContent = '✓ Copied!';
       setTimeout(() => {
-        button.textContent = originalText || 'Copy All';
+        button.textContent = originalText || 'Copy Selected';
       }, 2000);
     }
   });
@@ -86,6 +89,7 @@ function copyAllToClipboard(results: InvoiceResult[], fieldOrder: FieldConfig[])
 export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProps) {
   const [fieldOrder, setFieldOrder] = useState<FieldConfig[]>(DEFAULT_FIELDS);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);
@@ -114,11 +118,35 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
   const errorCount = results.filter(r => r.status === "error").length;
   const processingCount = results.filter(r => r.status === "processing").length;
 
+  const toggleSelectAll = () => {
+    if (selectedRows.size === results.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(results.map((_, idx) => idx)));
+    }
+  };
+
+  const toggleRow = (index: number) => {
+    const newSelected = new Set(selectedRows);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedRows(newSelected);
+  };
+
+  const selectedCount = selectedRows.size;
+  const allSelected = selectedRows.size === results.length && results.length > 0;
+
   return (
     <div className="mt-8 space-y-6">
       {/* Summary Stats */}
       <div className="flex items-center justify-between">
         <div className="flex gap-4 text-sm">
+          <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+            ☑ {selectedCount} Selected
+          </span>
           <span className="text-green-600 dark:text-green-400 font-medium">
             ✓ {successCount} Success
           </span>
@@ -136,19 +164,19 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
 
         <div className="flex gap-2">
           <button
-            id="copy-all-btn"
-            onClick={() => copyAllToClipboard(results, fieldOrder)}
-            disabled={successCount === 0}
+            id="copy-selected-btn"
+            onClick={() => copySelectedToClipboard(results, fieldOrder, selectedRows)}
+            disabled={selectedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            Copy All
+            Copy Selected
           </button>
           <button
-            onClick={() => downloadAllCSV(results, fieldOrder)}
-            disabled={successCount === 0}
+            onClick={() => downloadSelectedCSV(results, fieldOrder, selectedRows)}
+            disabled={selectedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,6 +202,14 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
           <table className="w-full">
             <thead className="bg-yellow-100 dark:bg-yellow-900/30 sticky top-0 z-10">
               <tr>
+                <th className="px-4 py-4 text-center border-r border-gray-300 dark:border-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                  />
+                </th>
                 <th className="px-4 py-4 text-left text-sm font-bold text-gray-900 dark:text-white border-r border-gray-300 dark:border-gray-600">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,6 +254,15 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
                       : "bg-gray-50 dark:bg-gray-700/30"
                   }`}
                 >
+                  <td className="px-4 py-3 text-center border-r border-gray-200 dark:border-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedRows.has(idx)}
+                      onChange={() => toggleRow(idx)}
+                      disabled={result.status !== "success"}
+                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 font-medium">
                     {result.fileName}
                   </td>

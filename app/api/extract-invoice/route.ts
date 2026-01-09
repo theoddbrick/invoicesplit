@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { qwen, MODEL_NAME } from "@/lib/ai";
+import { aiGateway, MODEL_NAME } from "@/lib/ai";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Configure PDF.js worker
@@ -91,7 +91,7 @@ Please respond ONLY with a valid JSON object in this exact format (no additional
 If a field cannot be found, use an empty string "". Be precise and extract exact values from the invoice.`;
 
     const { text } = await generateText({
-      model: qwen(MODEL_NAME),
+      model: aiGateway(MODEL_NAME),
       prompt: prompt,
       temperature: 0.1,
       maxTokens: 500,

@@ -34,23 +34,17 @@ yarn install
 
 ### 2. Configure Environment Variables
 
-Create a `.env.local` file in the root directory:
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` and add your API key:
+Create a `.env.local` file in the root directory with your Vercel AI Gateway key:
 
 ```env
-OPENAI_API_KEY=your_api_key_here
+AI_GATEWAY_API_KEY=vck_your_vercel_gateway_key_here
 ```
 
-If using custom AI Gateway:
+Optional configuration:
 
 ```env
-AI_GATEWAY_URL=https://your-gateway-url
-AI_MODEL_NAME=qwen-plus
+# Specify AI Model (format: provider/model-name)
+AI_MODEL_NAME=qwen/qwen-plus
 ```
 
 ### 3. Run Development Server
@@ -80,25 +74,29 @@ Or connect your GitHub repository to Vercel for automatic deployments.
 
 ## Vercel AI Gateway Setup
 
-### Enable OIDC Token (for production)
+### Get Your AI Gateway API Key
 
-1. Go to your Vercel project settings
-2. Search for "OIDC" in settings
-3. Enable "Secure Backend Access with OIDC Federation"
-4. Save settings
+1. Go to your [Vercel Dashboard](https://vercel.com/dashboard)
+2. Navigate to the **AI Gateway** tab
+3. Select **API Keys** and click **Create Key**
+4. Name your key (e.g., `invoicesplit-key`)
+5. Copy the generated key (starts with `vck_`)
+6. Add it to your `.env.local` file:
+   ```env
+   AI_GATEWAY_API_KEY=vck_your_key_here
+   ```
 
-### Local Development with OIDC
+### Model Selection
 
-If using `vercel dev`, the OIDC token is automatically refreshed.
+The AI Gateway supports multiple providers. Use the format `provider/model-name`:
 
-If running `npm run dev` directly:
+- **Qwen models**: `qwen/qwen-plus`, `qwen/qwen-turbo`, `qwen/qwen-max`
+- **OpenAI models**: `openai/gpt-4`, `openai/gpt-3.5-turbo`
+- **Anthropic models**: `anthropic/claude-3-opus`
 
-```bash
-# Pull environment variables (including OIDC token)
-vercel env pull
-
-# Note: OIDC token expires every 12 hours
-# Re-run this command when expired
+Set your preferred model in `.env.local`:
+```env
+AI_MODEL_NAME=qwen/qwen-plus
 ```
 
 ## Project Structure

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 1. Order ID
 2. Invoice NO. (Invoice Number)
 3. Tax Invoice Date (in YYYY-MM-DD format)
-4. Invoice Amount (total gross amount, include currency)
+4. Invoice Amount (IMPORTANT: Extract ONLY the numeric value with decimals, NO currency symbols, NO currency codes. For example: "267.35" not "S$267.35" or "USD 267.35")
 
 Invoice text:
 ${pdfText}
@@ -72,8 +72,12 @@ Please respond ONLY with a valid JSON object in this exact format (no additional
   "orderId": "extracted order id or booking number",
   "invoiceNo": "extracted invoice number",
   "taxInvoiceDate": "YYYY-MM-DD",
-  "invoiceAmount": "amount with currency"
+  "invoiceAmount": "numeric value only (e.g., 267.35)"
 }
+
+CRITICAL: For invoiceAmount, return ONLY the decimal number. Examples:
+- Correct: "267.35", "184.71", "1234.56"
+- Incorrect: "S$267.35", "$184.71", "USD 1234.56", "SGD 267.35"
 
 If a field cannot be found, use an empty string "". Be precise and extract exact values from the invoice.`;
 

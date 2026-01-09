@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { MODEL_NAME } from "@/lib/ai";
-import * as pdfjsLib from "pdfjs-dist";
+import { aiGateway, MODEL_NAME } from "@/lib/ai";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
-// Configure PDF.js worker
+// Configure PDF.js worker for Node.js environment
 if (typeof window === "undefined") {
-  // Server-side configuration
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  // Disable worker in Node.js - use synchronous processing
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 }
 
 export const maxDuration = 60; // Set max duration to 60 seconds for AI processing
@@ -16,6 +16,11 @@ async function extractTextFromPDF(buffer: ArrayBuffer): Promise<string> {
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(buffer),
       useSystemFonts: true,
+      standardFontDataUrl: undefined,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      disableAutoFetch: false,
+      disableStream: false,
     });
     
     const pdf = await loadingTask.promise;
@@ -25,15 +30,19 @@ async function extractTextFromPDF(buffer: ArrayBuffer): Promise<string> {
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
       const pageText = textContent.items
-        .map((item: any) => item.str)
+        .map((item: any) => {
+          // Handle both string items and object items with 'str' property
+          if (typeof item === 'string') return item;
+          return item.str || '';
+        })
         .join(" ");
       fullText += pageText + "\n";
     }
 
-    return fullText;
+    return fullText.trim();
   } catch (error) {
     console.error("PDF extraction error:", error);
-    throw new Error("Failed to extract text from PDF");
+    throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -90,12 +99,10 @@ Please respond ONLY with a valid JSON object in this exact format (no additional
 
 If a field cannot be found, use an empty string "". Be precise and extract exact values from the invoice.`;
 
-    // When you specify a model id as a plain string, the AI SDK will
-    // automatically use the Vercel AI Gateway provider to route the request.
-    // The AI Gateway provider looks for the API key in the AI_GATEWAY_API_KEY
-    // environment variable by default.
+    // Use Vercel AI Gateway with Qwen model
+    // The aiGateway client is configured with AI_GATEWAY_API_KEY
     const { text } = await generateText({
-      model: MODEL_NAME, // Pass model name as string - AI SDK auto-routes via AI Gateway
+      model: aiGateway(MODEL_NAME),
       prompt: prompt,
       temperature: 0.1,
       maxTokens: 500,

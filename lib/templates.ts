@@ -2,6 +2,17 @@
 
 export type FieldType = "text" | "number" | "date" | "currency";
 
+export type DateFormat = "YYYY-MM-DD" | "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY/MM/DD";
+export type CurrencyFormat = "decimal" | "with-symbol" | "with-code";
+export type NumberFormat = "plain" | "with-commas" | "scientific";
+
+export interface FieldFormatOptions {
+  dateFormat?: DateFormat;
+  currencyFormat?: CurrencyFormat;
+  numberFormat?: NumberFormat;
+  currencySymbol?: string;  // e.g., "$", "S$", "USD"
+}
+
 export interface ExtractionField {
   id: string;
   name: string;              // Display name (e.g., "Invoice NO.")
@@ -10,6 +21,7 @@ export interface ExtractionField {
   required: boolean;         // If true, warn if field is empty
   type: FieldType;          // Data type for validation
   validation?: string;       // Optional regex pattern
+  formatOptions?: FieldFormatOptions;  // User-configurable format preferences
 }
 
 export interface ExtractionTemplate {

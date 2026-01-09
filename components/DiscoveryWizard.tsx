@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { ExtractionTemplate, ExtractionField, FieldType } from "@/lib/templates";
+import { ExtractionTemplate, ExtractionField, FieldType, DateFormat, CurrencyFormat, NumberFormat } from "@/lib/templates";
 
 // Load PDF viewer only on client-side (DOMMatrix not available in SSR)
 const PdfViewerWithHighlights = dynamic(
@@ -120,6 +120,10 @@ interface DiscoveredField {
   enabled: boolean;
   extractionHint?: string;
   formatRule?: string;
+  dateFormat?: DateFormat;
+  currencyFormat?: CurrencyFormat;
+  numberFormat?: NumberFormat;
+  currencySymbol?: string;
 }
 
 interface SampleText {
@@ -257,6 +261,12 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
         description: f.suggestedDescription + (f.extractionHint ? ` ${f.extractionHint}` : ""),
         required: f.foundInSamples === sampleFiles.length,
         type: f.suggestedType,
+        formatOptions: {
+          dateFormat: f.dateFormat,
+          currencyFormat: f.currencyFormat,
+          numberFormat: f.numberFormat,
+          currencySymbol: f.currencySymbol
+        }
       })),
       createdAt: existingTemplate?.createdAt || Date.now(),
       updatedAt: Date.now()
@@ -582,18 +592,74 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
                                       className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
                                     />
                                   </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                      Format Rule
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={field.formatRule || ""}
-                                      onChange={(e) => updateField(index, { formatRule: e.target.value })}
-                                      placeholder="e.g., 'Decimal without currency'"
-                                      className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
-                                    />
-                                  </div>
+
+                                  {/* Format Options based on field type */}
+                                  {field.suggestedType === "date" && (
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Date Format
+                                      </label>
+                                      <select
+                                        value={field.dateFormat || "YYYY-MM-DD"}
+                                        onChange={(e) => updateField(index, { dateFormat: e.target.value as DateFormat })}
+                                        className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                      >
+                                        <option value="YYYY-MM-DD">YYYY-MM-DD (2026-01-09)</option>
+                                        <option value="DD/MM/YYYY">DD/MM/YYYY (09/01/2026)</option>
+                                        <option value="MM/DD/YYYY">MM/DD/YYYY (01/09/2026)</option>
+                                        <option value="YYYY/MM/DD">YYYY/MM/DD (2026/01/09)</option>
+                                      </select>
+                                    </div>
+                                  )}
+
+                                  {field.suggestedType === "currency" && (
+                                    <>
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                          Currency Format
+                                        </label>
+                                        <select
+                                          value={field.currencyFormat || "decimal"}
+                                          onChange={(e) => updateField(index, { currencyFormat: e.target.value as CurrencyFormat })}
+                                          className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                        >
+                                          <option value="decimal">Decimal only (267.35)</option>
+                                          <option value="with-symbol">With symbol (S$267.35)</option>
+                                          <option value="with-code">With code (SGD 267.35)</option>
+                                        </select>
+                                      </div>
+                                      {field.currencyFormat === "with-symbol" && (
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Currency Symbol
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={field.currencySymbol || "$"}
+                                            onChange={(e) => updateField(index, { currencySymbol: e.target.value })}
+                                            placeholder="e.g., $, S$, €"
+                                            className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                          />
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {field.suggestedType === "number" && (
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Number Format
+                                      </label>
+                                      <select
+                                        value={field.numberFormat || "plain"}
+                                        onChange={(e) => updateField(index, { numberFormat: e.target.value as NumberFormat })}
+                                        className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                      >
+                                        <option value="plain">Plain (1234.56)</option>
+                                        <option value="with-commas">With commas (1,234.56)</option>
+                                      </select>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

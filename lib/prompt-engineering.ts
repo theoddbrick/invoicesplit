@@ -42,18 +42,32 @@ export function buildExtractionPrompt(
     throw new Error("No fields enabled for extraction");
   }
 
-  // Build field descriptions with type hints
+  // Build field descriptions with user-configured type hints
   const fieldDescriptions = activeFields.map((field, index) => {
     // Use custom instruction if provided (from training), otherwise use field description
     const baseDescription = options?.customInstructions?.[field.key] || field.description;
     
     let typeHint = "";
     if (field.type === "date") {
-      typeHint = " (format as YYYY-MM-DD)";
+      const dateFormat = field.formatOptions?.dateFormat || "YYYY-MM-DD";
+      typeHint = ` (format as ${dateFormat})`;
     } else if (field.type === "currency") {
-      typeHint = " (IMPORTANT: Extract ONLY the numeric decimal value, NO currency symbols. Example: '267.35' not 'S$267.35')";
+      const currencyFormat = field.formatOptions?.currencyFormat || "decimal";
+      if (currencyFormat === "decimal") {
+        typeHint = " (IMPORTANT: Extract ONLY the numeric decimal value, NO currency symbols. Example: '267.35' not 'S$267.35')";
+      } else if (currencyFormat === "with-symbol") {
+        const symbol = field.formatOptions?.currencySymbol || "$";
+        typeHint = ` (include currency symbol: ${symbol}267.35)`;
+      } else if (currencyFormat === "with-code") {
+        typeHint = " (include currency code: USD 267.35 or SGD 267.35)";
+      }
     } else if (field.type === "number") {
-      typeHint = " (extract as numeric value only)";
+      const numberFormat = field.formatOptions?.numberFormat || "plain";
+      if (numberFormat === "with-commas") {
+        typeHint = " (format with commas: 1,234.56)";
+      } else {
+        typeHint = " (extract as numeric value only)";
+      }
     }
     
     const requiredMark = field.required ? " [REQUIRED]" : "";

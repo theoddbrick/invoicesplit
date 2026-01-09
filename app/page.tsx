@@ -3,8 +3,7 @@
 import { useState } from "react";
 import InvoiceUpload from "@/components/InvoiceUpload";
 import MultiInvoiceResults from "@/components/MultiInvoiceResults";
-import TemplateSelector from "@/components/TemplateSelector";
-import TemplateEditor from "@/components/TemplateEditor";
+import DiscoveryWizard from "@/components/DiscoveryWizard";
 import { useTemplates } from "@/hooks/useTemplates";
 import { ExtractionTemplate } from "@/lib/templates";
 import { extractDataFromPDF } from "@/lib/api-client";
@@ -26,9 +25,9 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<BatchProgress>({ completed: 0, total: 0 });
 
-  // Template editor state
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<ExtractionTemplate | undefined>();
+  // Discovery wizard state
+  const [showDiscoveryWizard, setShowDiscoveryWizard] = useState(false);
+  const [hasActiveProfile, setHasActiveProfile] = useState(false);
 
   if (!isLoaded) {
     // Show loading while templates load from storage
@@ -131,22 +130,59 @@ export default function Home() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          {/* Template Selector */}
-          <TemplateSelector
-            templates={templates}
-            activeTemplate={activeTemplate}
-            onSelectTemplate={(t) => setActiveTemplate(t.id)}
-            onCreateTemplate={() => {
-              setEditingTemplate(undefined);
-              setIsEditorOpen(true);
-            }}
-            onEditTemplate={(t) => {
-              setEditingTemplate(t);
-              setIsEditorOpen(true);
-            }}
-          />
+          {/* Show discovery wizard if no active profile */}
+          {!hasActiveProfile ? (
+            <div className="text-center py-12">
+              <div className="mx-auto w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6">
+                <svg className="w-10 h-10 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                Let AI Discover What to Extract
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
+                Upload sample documents and tell us what information you need. 
+                AI will automatically discover and extract the relevant fields.
+              </p>
+              <button
+                onClick={() => setShowDiscoveryWizard(true)}
+                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors shadow-lg hover:shadow-xl"
+              >
+                Start Field Discovery →
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Profile Info Bar */}
+              <div className="mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {activeTemplate.name}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {activeTemplate.fields.length} fields configured
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setHasActiveProfile(false);
+                    handleReset();
+                  }}
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                >
+                  Start New Discovery →
+                </button>
+              </div>
 
-          <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
+              <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
+            </>
+          )}
           
           {isProcessing && (
             <div className="mt-8">
@@ -176,24 +212,18 @@ export default function Home() {
           )}
         </div>
 
-        {/* Template Editor Modal */}
-        <TemplateEditor
-          isOpen={isEditorOpen}
-          onClose={() => {
-            setIsEditorOpen(false);
-            setEditingTemplate(undefined);
-          }}
-          onSave={async (template) => {
-            await saveTemplate(template);
-            setIsEditorOpen(false);
-            setEditingTemplate(undefined);
-            // If this was a new template, make it active
-            if (!editingTemplate) {
+        {/* Discovery Wizard */}
+        {showDiscoveryWizard && (
+          <DiscoveryWizard
+            onComplete={async (template) => {
+              await saveTemplate(template);
               await setActiveTemplate(template.id);
-            }
-          }}
-          template={editingTemplate}
-        />
+              setShowDiscoveryWizard(false);
+              setHasActiveProfile(true);
+            }}
+            onCancel={() => setShowDiscoveryWizard(false)}
+          />
+        )}
 
         <div className="mt-8 space-y-2">
           <div className="text-center text-sm text-gray-500 dark:text-gray-400">

@@ -15,7 +15,13 @@ interface FieldConfig {
   label: string;
 }
 
-function downloadSelectedCSV(results: ExtractionResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
+function downloadSelectedCSV(
+  results: ExtractionResult[],
+  fieldOrder: FieldConfig[],
+  selectedIndices: Set<number>,
+  includeHeaders: boolean,
+  includeFilename: boolean
+) {
   const selectedResults = results.filter((r, idx) => 
     selectedIndices.has(idx) && r.status === "success" && r.data
   );
@@ -25,17 +31,28 @@ function downloadSelectedCSV(results: ExtractionResult[], fieldOrder: FieldConfi
     return;
   }
 
-  // Create CSV content (with headers)
-  const headers = ["Filename", ...fieldOrder.map(f => f.label)];
-  const rows = selectedResults.map(result => [
-    result.fileName,
-    ...fieldOrder.map(f => result.data![f.key] || "")
-  ]);
+  // Build CSV content
+  const csvRows: string[][] = [];
+  
+  // Headers (if enabled)
+  if (includeHeaders) {
+    const headerRow = [
+      ...(includeFilename ? ["Filename"] : []),
+      ...fieldOrder.map(f => f.label)
+    ];
+    csvRows.push(headerRow);
+  }
+  
+  // Data rows
+  selectedResults.forEach(result => {
+    const row = [
+      ...(includeFilename ? [result.fileName] : []),
+      ...fieldOrder.map(f => result.data![f.key] || "")
+    ];
+    csvRows.push(row);
+  });
 
-  const csvContent = [
-    headers.join(","),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-  ].join("\n");
+  const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
 
   // Create blob and download
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -51,7 +68,13 @@ function downloadSelectedCSV(results: ExtractionResult[], fieldOrder: FieldConfi
   document.body.removeChild(link);
 }
 
-function copySelectedToClipboard(results: ExtractionResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
+function copySelectedToClipboard(
+  results: ExtractionResult[],
+  fieldOrder: FieldConfig[],
+  selectedIndices: Set<number>,
+  includeHeaders: boolean,
+  includeFilename: boolean
+) {
   const selectedResults = results.filter((r, idx) => 
     selectedIndices.has(idx) && r.status === "success" && r.data
   );
@@ -61,15 +84,28 @@ function copySelectedToClipboard(results: ExtractionResult[], fieldOrder: FieldC
     return;
   }
 
-  // Create tab-separated values WITHOUT headers (data only)
-  // Wrap each value in ="value" format to prevent Excel scientific notation
-  const rows = selectedResults.map(result => 
-    fieldOrder.map(f => {
-      const value = result.data![f.key] || "";
-      // Use ="value" format to force Excel/Sheets to treat as text
-      return `="${value}"`;
-    }).join("\t")
-  );
+  const rows: string[] = [];
+  
+  // Headers (if enabled)
+  if (includeHeaders) {
+    const headerRow = [
+      ...(includeFilename ? ["Filename"] : []),
+      ...fieldOrder.map(f => f.label)
+    ].join("\t");
+    rows.push(headerRow);
+  }
+  
+  // Data rows with ="value" format to prevent Excel scientific notation
+  selectedResults.forEach(result => {
+    const row = [
+      ...(includeFilename ? [`="${result.fileName}"`] : []),
+      ...fieldOrder.map(f => {
+        const value = result.data![f.key] || "";
+        return `="${value}"`;
+      })
+    ].join("\t");
+    rows.push(row);
+  });
 
   const content = rows.join("\n");
   
@@ -91,6 +127,10 @@ export default function MultiInvoiceResults({ results, activeTemplate, onReset }
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
+  
+  // Export options
+  const [includeHeaders, setIncludeHeaders] = useState(false);
+  const [includeFilename, setIncludeFilename] = useState(false);
 
   // Initialize field order from template
   useEffect(() => {
@@ -163,7 +203,7 @@ export default function MultiInvoiceResults({ results, activeTemplate, onReset }
   return (
     <div className="mt-8 space-y-6">
       {/* Summary Stats */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex gap-4 text-sm">
           <span className="text-indigo-600 dark:text-indigo-400 font-medium">
             ☑ {selectedCount} Selected
@@ -183,6 +223,28 @@ export default function MultiInvoiceResults({ results, activeTemplate, onReset }
           )}
         </div>
 
+        {/* Export Options */}
+        <div className="flex items-center gap-4 text-sm">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeHeaders}
+              onChange={(e) => setIncludeHeaders(e.target.checked)}
+              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <span className="text-gray-700 dark:text-gray-300">Include headers</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeFilename}
+              onChange={(e) => setIncludeFilename(e.target.checked)}
+              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <span className="text-gray-700 dark:text-gray-300">Include filename</span>
+          </label>
+        </div>
+
         <div className="flex gap-2">
           <button
             onClick={onReset}
@@ -195,7 +257,7 @@ export default function MultiInvoiceResults({ results, activeTemplate, onReset }
           </button>
           <button
             id="copy-selected-btn"
-            onClick={() => copySelectedToClipboard(results, fieldOrder, selectedRows)}
+            onClick={() => copySelectedToClipboard(results, fieldOrder, selectedRows, includeHeaders, includeFilename)}
             disabled={!allProcessingComplete || selectedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
             title={!allProcessingComplete ? "Please wait for all files to finish processing" : ""}
@@ -206,7 +268,7 @@ export default function MultiInvoiceResults({ results, activeTemplate, onReset }
             {!allProcessingComplete ? "Processing..." : "Copy Selected"}
           </button>
           <button
-            onClick={() => downloadSelectedCSV(results, fieldOrder, selectedRows)}
+            onClick={() => downloadSelectedCSV(results, fieldOrder, selectedRows, includeHeaders, includeFilename)}
             disabled={!allProcessingComplete || selectedCount === 0}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
             title={!allProcessingComplete ? "Please wait for all files to finish processing" : ""}

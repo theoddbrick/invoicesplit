@@ -5,6 +5,7 @@ import { useState } from "react";
 
 interface MultiInvoiceResultsProps {
   results: InvoiceResult[];
+  onReset: () => void;
 }
 
 type FieldKey = keyof InvoiceData;
@@ -91,7 +92,7 @@ function copySelectedToClipboard(results: InvoiceResult[], fieldOrder: FieldConf
   });
 }
 
-export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProps) {
+export default function MultiInvoiceResults({ results, onReset }: MultiInvoiceResultsProps) {
   const [fieldOrder, setFieldOrder] = useState<FieldConfig[]>(DEFAULT_FIELDS);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -179,6 +180,15 @@ export default function MultiInvoiceResults({ results }: MultiInvoiceResultsProp
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={onReset}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Start New Session
+          </button>
           <button
             id="copy-selected-btn"
             onClick={() => copySelectedToClipboard(results, fieldOrder, selectedRows)}

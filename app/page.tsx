@@ -104,6 +104,12 @@ export default function Home() {
     await processFilesBatch(files);
   };
 
+  const handleReset = () => {
+    setInvoiceResults([]);
+    setIsProcessing(false);
+    setProgress({ completed: 0, total: 0 });
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
       <div className="max-w-4xl mx-auto">
@@ -139,7 +145,7 @@ export default function Home() {
           )}
 
           {invoiceResults.length > 0 && (
-            <MultiInvoiceResults results={invoiceResults} />
+            <MultiInvoiceResults results={invoiceResults} onReset={handleReset} />
           )}
         </div>
 

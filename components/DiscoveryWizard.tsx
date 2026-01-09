@@ -113,15 +113,32 @@ interface SampleText {
 interface DiscoveryWizardProps {
   onComplete: (template: ExtractionTemplate) => void;
   onCancel: () => void;
+  existingTemplate?: ExtractionTemplate;  // If provided, editing existing profile
 }
 
 type Step = "intent" | "discovering" | "review" | "refine";
 
-export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizardProps) {
-  const [step, setStep] = useState<Step>("intent");
-  const [userIntent, setUserIntent] = useState("");
+export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate }: DiscoveryWizardProps) {
+  const isEditMode = !!existingTemplate;
+  
+  // Initialize state from existing template if editing
+  const [step, setStep] = useState<Step>(isEditMode ? "review" : "intent");
+  const [userIntent, setUserIntent] = useState(existingTemplate?.description || "");
   const [sampleFiles, setSampleFiles] = useState<File[]>([]);
-  const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>([]);
+  const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>(
+    isEditMode ? existingTemplate!.fields.map(f => ({
+      suggestedName: f.name,
+      suggestedKey: f.key,
+      suggestedType: f.type,
+      foundInSamples: 0,
+      sampleValues: [],
+      confidence: 90,
+      suggestedDescription: f.description,
+      enabled: true,
+      extractionHint: "",
+      formatRule: ""
+    })) : []
+  );
   const [sampleTexts, setSampleTexts] = useState<SampleText[]>([]);
   const [currentSampleIndex, setCurrentSampleIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -209,19 +226,19 @@ export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizar
     }
 
     const template: ExtractionTemplate = {
-      id: `profile-${Date.now()}`,
-      name: userIntent.substring(0, 50) || "Custom Extraction",
-      description: `Discovered ${enabledFields.length} fields from ${sampleFiles.length} samples`,
-      documentType: "document",
+      id: existingTemplate?.id || `profile-${Date.now()}`,
+      name: existingTemplate?.name || userIntent.substring(0, 50) || "Custom Extraction",
+      description: existingTemplate?.description || `Discovered ${enabledFields.length} fields from ${sampleFiles.length} samples`,
+      documentType: existingTemplate?.documentType || "document",
       fields: enabledFields.map((f, i) => ({
-        id: `field-${i}`,
+        id: existingTemplate?.fields[i]?.id || `field-${i}`,
         name: f.suggestedName,
         key: f.suggestedKey,
         description: f.suggestedDescription + (f.extractionHint ? ` ${f.extractionHint}` : ""),
         required: f.foundInSamples === sampleFiles.length,
         type: f.suggestedType,
       })),
-      createdAt: Date.now(),
+      createdAt: existingTemplate?.createdAt || Date.now(),
       updatedAt: Date.now()
     };
 
@@ -239,12 +256,14 @@ export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizar
                 <svg className="w-7 h-7 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                AI-Powered Field Discovery
+                {isEditMode ? "Edit Extraction Profile" : "AI-Powered Field Discovery"}
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                 {step === "intent" && "Describe what you want to extract, upload samples"}
                 {step === "discovering" && "AI is analyzing your documents..."}
-                {step === "review" && `Review discovered fields (${discoveredFields.filter(f => f.enabled).length} enabled)`}
+                {step === "review" && isEditMode 
+                  ? `Editing profile: ${existingTemplate?.name} (${discoveredFields.filter(f => f.enabled).length} enabled)`
+                  : `Review discovered fields (${discoveredFields.filter(f => f.enabled).length} enabled)`}
               </p>
             </div>
             <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">

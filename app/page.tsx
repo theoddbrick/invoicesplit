@@ -169,15 +169,26 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setHasActiveProfile(false);
-                    handleReset();
-                  }}
-                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
-                >
-                  Start New Discovery →
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDiscoveryWizard(true)}
+                    className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-gray-600 border border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Fields
+                  </button>
+                  <button
+                    onClick={() => {
+                      setHasActiveProfile(false);
+                      handleReset();
+                    }}
+                    className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium px-4 py-2"
+                  >
+                    Start New →
+                  </button>
+                </div>
               </div>
 
               <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
@@ -215,6 +226,7 @@ export default function Home() {
         {/* Discovery Wizard */}
         {showDiscoveryWizard && (
           <DiscoveryWizard
+            existingTemplate={hasActiveProfile ? activeTemplate : undefined}
             onComplete={async (template) => {
               await saveTemplate(template);
               await setActiveTemplate(template.id);

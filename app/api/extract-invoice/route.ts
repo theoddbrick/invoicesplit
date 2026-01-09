@@ -2,16 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { qwenClient, MODEL_NAME } from "@/lib/ai";
 import pdfParse from "pdf-parse";
-import { ExtractionTemplate, ExtractionField } from "@/lib/templates";
+import { ExtractionTemplate } from "@/lib/templates";
+import { buildExtractionPrompt, buildValidationPrompt, savePromptVersion } from "@/lib/prompt-engineering";
+import { ValidationResult } from "@/lib/types";
 
 export const maxDuration = 60; // Set max duration to 60 seconds for AI processing
-
-interface DocumentValidation {
-  isValid: boolean;
-  detectedType: string;
-  confidence: number;
-  reason?: string;
-}
 
 async function extractTextFromPDF(buffer: ArrayBuffer): Promise<string> {
   try {
@@ -35,24 +30,9 @@ async function extractTextFromPDF(buffer: ArrayBuffer): Promise<string> {
 async function validateDocument(
   pdfText: string,
   expectedType: string
-): Promise<DocumentValidation> {
+): Promise<ValidationResult> {
   try {
-    const validationPrompt = `You are a document classifier. Analyze the following text and determine:
-
-1. Is this a valid ${expectedType}?
-2. What type of document is this?
-3. Confidence level (0-100)
-
-Document text:
-${pdfText.substring(0, 2000)} ${pdfText.length > 2000 ? '...(truncated)' : ''}
-
-Respond ONLY with valid JSON:
-{
-  "isValid": true or false,
-  "detectedType": "invoice|receipt|statement|bill|contract|article|letter|other",
-  "confidence": 0-100,
-  "reason": "brief explanation if not valid"
-}`;
+    const validationPrompt = buildValidationPrompt(pdfText, expectedType);
 
     const { text } = await generateText({
       model: qwenClient(MODEL_NAME),
@@ -61,15 +41,25 @@ Respond ONLY with valid JSON:
       maxTokens: 200,
     });
 
-    let validation = JSON.parse(text.trim().replace(/```json\n?|```\n?/g, ""));
-    return validation;
+    const parsed = JSON.parse(text.trim().replace(/```json\n?|```\n?/g, ""));
+    
+    return {
+      isValidDocument: parsed.isValid,
+      detectedType: parsed.detectedType,
+      expectedType: expectedType,
+      confidence: parsed.confidence,
+      warnings: [],
+      reason: parsed.reason
+    };
   } catch (error) {
     // If validation fails, assume valid (fail open)
     console.error("Validation error:", error);
     return {
-      isValid: true,
+      isValidDocument: true,
       detectedType: expectedType,
+      expectedType: expectedType,
       confidence: 50,
+      warnings: ["Validation check failed, proceeding with extraction"]
     };
   }
 }
@@ -125,10 +115,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse optional parameters for training mode
+    const enabledFieldsJson = formData.get("enabledFields") as string | null;
+    const customInstructionsJson = formData.get("customInstructions") as string | null;
+    
+    let enabledFields: Set<string> | undefined;
+    let customInstructions: Record<string, string> | undefined;
+    
+    if (enabledFieldsJson) {
+      try {
+        const fields = JSON.parse(enabledFieldsJson) as string[];
+        enabledFields = new Set(fields);
+      } catch (error) {
+        console.error("Failed to parse enabledFields:", error);
+      }
+    }
+    
+    if (customInstructionsJson) {
+      try {
+        customInstructions = JSON.parse(customInstructionsJson);
+      } catch (error) {
+        console.error("Failed to parse customInstructions:", error);
+      }
+    }
+
     // Validate document type
     const validation = await validateDocument(pdfText, template.documentType);
     
-    if (!validation.isValid && validation.confidence > 70) {
+    if (!validation.isValidDocument && validation.confidence > 70) {
       return NextResponse.json({
         error: "Document type mismatch",
         validation: {
@@ -140,49 +154,18 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Generate dynamic AI prompt based on template
-    const fieldDescriptions = template.fields.map((field, index) => {
-      let typeHint = "";
-      if (field.type === "date") {
-        typeHint = " (format as YYYY-MM-DD)";
-      } else if (field.type === "currency") {
-        typeHint = " (IMPORTANT: Extract ONLY the numeric decimal value, NO currency symbols)";
-      } else if (field.type === "number") {
-        typeHint = " (extract as numeric value only)";
-      }
-      
-      return `${index + 1}. ${field.name}: ${field.description}${typeHint}`;
-    }).join("\n");
-
-    const jsonStructure = template.fields.reduce((acc, field) => {
-      acc[field.key] = `extracted ${field.name.toLowerCase()}`;
-      return acc;
-    }, {} as Record<string, string>);
-
-    const prompt = `You are an expert document data extractor. Analyze the following ${template.documentType} text and extract these specific fields:
-
-${fieldDescriptions}
-
-Document text:
-${pdfText}
-
-Please respond ONLY with a valid JSON object in this exact format (no additional text or markdown):
-${JSON.stringify(jsonStructure, null, 2)}
-
-CRITICAL RULES:
-- For currency/amount fields: Return ONLY the decimal number (e.g., "267.35" not "S$267.35")
-- For date fields: Use YYYY-MM-DD format
-- For number fields: Extract numeric value only
-- If a field cannot be found, use an empty string ""
-- Be precise and extract exact values from the document`;
+    // Build extraction prompt using prompt engineering system
+    const { prompt, version } = buildExtractionPrompt(template, pdfText, {
+      enabledFields,
+      customInstructions
+    });
 
     // Use Alibaba Cloud Model Studio (DashScope) with Qwen-Max
-    // The qwenClient is configured with MODEL_STUDIO_KEY/DASHSCOPE_API_KEY
     const { text } = await generateText({
       model: qwenClient(MODEL_NAME),
       prompt: prompt,
       temperature: 0.1,
-      maxTokens: 1000, // Increased for better response quality
+      maxTokens: 1000,
     });
 
     // Parse AI response
@@ -217,7 +200,7 @@ CRITICAL RULES:
       success: true,
       invoiceData,
       validation: {
-        isValidDocument: validation.isValid,
+        isValidDocument: validation.isValidDocument,
         confidence: validation.confidence,
         warnings
       }

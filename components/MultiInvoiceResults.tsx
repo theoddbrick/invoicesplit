@@ -1,28 +1,21 @@
 "use client";
 
-import { InvoiceResult, InvoiceData } from "@/app/page";
-import { useState } from "react";
+import { ExtractionResult, ExtractedData } from "@/lib/types";
+import { ExtractionTemplate } from "@/lib/templates";
+import { useState, useEffect } from "react";
 
 interface MultiInvoiceResultsProps {
-  results: InvoiceResult[];
+  results: ExtractionResult[];
+  activeTemplate: ExtractionTemplate;
   onReset: () => void;
 }
 
-type FieldKey = keyof InvoiceData;
-
 interface FieldConfig {
-  key: FieldKey;
+  key: string;
   label: string;
 }
 
-const DEFAULT_FIELDS: FieldConfig[] = [
-  { key: "orderId", label: "Order ID" },
-  { key: "invoiceNo", label: "Invoice NO." },
-  { key: "taxInvoiceDate", label: "Tax Invoice Date" },
-  { key: "invoiceAmount", label: "Invoice Amount" },
-];
-
-function downloadSelectedCSV(results: InvoiceResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
+function downloadSelectedCSV(results: ExtractionResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
   const selectedResults = results.filter((r, idx) => 
     selectedIndices.has(idx) && r.status === "success" && r.data
   );
@@ -58,7 +51,7 @@ function downloadSelectedCSV(results: InvoiceResult[], fieldOrder: FieldConfig[]
   document.body.removeChild(link);
 }
 
-function copySelectedToClipboard(results: InvoiceResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
+function copySelectedToClipboard(results: ExtractionResult[], fieldOrder: FieldConfig[], selectedIndices: Set<number>) {
   const selectedResults = results.filter((r, idx) => 
     selectedIndices.has(idx) && r.status === "success" && r.data
   );
@@ -92,11 +85,22 @@ function copySelectedToClipboard(results: InvoiceResult[], fieldOrder: FieldConf
   });
 }
 
-export default function MultiInvoiceResults({ results, onReset }: MultiInvoiceResultsProps) {
-  const [fieldOrder, setFieldOrder] = useState<FieldConfig[]>(DEFAULT_FIELDS);
+export default function MultiInvoiceResults({ results, activeTemplate, onReset }: MultiInvoiceResultsProps) {
+  // Build field order from active template
+  const [fieldOrder, setFieldOrder] = useState<FieldConfig[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
+
+  // Initialize field order from template
+  useEffect(() => {
+    const fields = activeTemplate.fields.map(f => ({
+      key: f.key,
+      label: f.name
+    }));
+    setFieldOrder(fields);
+    setHasAutoSelected(false); // Reset auto-selection when template changes
+  }, [activeTemplate.id]);
 
   const handleDragStart = (index: number) => {
     setDraggedIndex(index);

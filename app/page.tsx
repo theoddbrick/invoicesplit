@@ -3,29 +3,48 @@
 import { useState } from "react";
 import InvoiceUpload from "@/components/InvoiceUpload";
 import MultiInvoiceResults from "@/components/MultiInvoiceResults";
-
-export type InvoiceData = {
-  orderId: string;
-  invoiceNo: string;
-  taxInvoiceDate: string;
-  invoiceAmount: string;
-};
-
-export type InvoiceResult = {
-  fileName: string;
-  status: "pending" | "processing" | "success" | "error";
-  data?: InvoiceData;
-  error?: string;
-};
+import TemplateSelector from "@/components/TemplateSelector";
+import TemplateEditor from "@/components/TemplateEditor";
+import { useTemplates } from "@/hooks/useTemplates";
+import { ExtractionTemplate } from "@/lib/templates";
+import { extractDataFromPDF } from "@/lib/api-client";
+import { ExtractionResult, BatchProgress } from "@/lib/types";
 
 export default function Home() {
-  const [invoiceResults, setInvoiceResults] = useState<InvoiceResult[]>([]);
+  // Template management via custom hook
+  const {
+    templates,
+    activeTemplate,
+    isLoaded,
+    saveTemplate,
+    deleteTemplate,
+    setActiveTemplate
+  } = useTemplates();
+
+  // File processing state
+  const [invoiceResults, setInvoiceResults] = useState<ExtractionResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ completed: 0, total: 0 });
+  const [progress, setProgress] = useState<BatchProgress>({ completed: 0, total: 0 });
+
+  // Template editor state
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ExtractionTemplate | undefined>();
+
+  if (!isLoaded) {
+    // Show loading while templates load from storage
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading templates...</p>
+        </div>
+      </div>
+    );
+  }
 
   const processFilesBatch = async (files: File[]) => {
     const batchSize = 5; // Process 5 files concurrently
-    const results: InvoiceResult[] = files.map(file => ({
+    const results: ExtractionResult[] = files.map(file => ({
       fileName: file.name,
       status: "pending" as const,
     }));
@@ -34,7 +53,7 @@ export default function Home() {
     setIsProcessing(true);
     setProgress({ completed: 0, total: files.length });
 
-    // Process in batches
+    // Process in batches using centralized API client
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, Math.min(i + batchSize, files.length));
       
@@ -50,20 +69,8 @@ export default function Home() {
           });
 
           try {
-            const formData = new FormData();
-            formData.append("file", file);
-
-            const response = await fetch("/api/extract-invoice", {
-              method: "POST",
-              body: formData,
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || "Failed to extract invoice data");
-            }
-
-            const data = await response.json();
+            // Use centralized API client with current template
+            const result = await extractDataFromPDF(file, activeTemplate);
             
             // Update with success
             setInvoiceResults(prev => {
@@ -71,7 +78,8 @@ export default function Home() {
               updated[fileIndex] = {
                 ...updated[fileIndex],
                 status: "success",
-                data: data.invoiceData,
+                data: result.invoiceData,
+                validation: result.validation
               };
               return updated;
             });
@@ -123,6 +131,21 @@ export default function Home() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          {/* Template Selector */}
+          <TemplateSelector
+            templates={templates}
+            activeTemplate={activeTemplate}
+            onSelectTemplate={(t) => setActiveTemplate(t.id)}
+            onCreateTemplate={() => {
+              setEditingTemplate(undefined);
+              setIsEditorOpen(true);
+            }}
+            onEditTemplate={(t) => {
+              setEditingTemplate(t);
+              setIsEditorOpen(true);
+            }}
+          />
+
           <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
           
           {isProcessing && (
@@ -145,9 +168,32 @@ export default function Home() {
           )}
 
           {invoiceResults.length > 0 && (
-            <MultiInvoiceResults results={invoiceResults} onReset={handleReset} />
+            <MultiInvoiceResults 
+              results={invoiceResults} 
+              activeTemplate={activeTemplate}
+              onReset={handleReset} 
+            />
           )}
         </div>
+
+        {/* Template Editor Modal */}
+        <TemplateEditor
+          isOpen={isEditorOpen}
+          onClose={() => {
+            setIsEditorOpen(false);
+            setEditingTemplate(undefined);
+          }}
+          onSave={async (template) => {
+            await saveTemplate(template);
+            setIsEditorOpen(false);
+            setEditingTemplate(undefined);
+            // If this was a new template, make it active
+            if (!editingTemplate) {
+              await setActiveTemplate(template.id);
+            }
+          }}
+          template={editingTemplate}
+        />
 
         <div className="mt-8 space-y-2">
           <div className="text-center text-sm text-gray-500 dark:text-gray-400">

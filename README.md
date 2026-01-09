@@ -74,17 +74,39 @@ Or connect your GitHub repository to Vercel for automatic deployments.
 
 ## Vercel AI Gateway Setup
 
-### Get Your AI Gateway API Key
+This project uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/authentication) for AI model access. There are two authentication methods:
+
+### Option 1: API Key Authentication (Recommended for Development)
 
 1. Go to your [Vercel Dashboard](https://vercel.com/dashboard)
 2. Navigate to the **AI Gateway** tab
-3. Select **API Keys** and click **Create Key**
-4. Name your key (e.g., `invoicesplit-key`)
+3. Select **API Keys** on the left sidebar
+4. Click **Create key** and generate a new API key
 5. Copy the generated key (starts with `vck_`)
 6. Add it to your `.env.local` file:
    ```env
    AI_GATEWAY_API_KEY=vck_your_key_here
    ```
+
+When you specify a model id as a plain string, the AI SDK will automatically use the Vercel AI Gateway provider to route the request. The AI Gateway provider looks for the API key in the `AI_GATEWAY_API_KEY` environment variable by default.
+
+### Option 2: OIDC Token Authentication (Automatic in Production)
+
+For production deployments on Vercel, authentication is handled automatically via OIDC tokens.
+
+For local development with OIDC:
+
+1. Link to a Vercel project:
+   ```bash
+   vercel link
+   ```
+
+2. Pull environment variables (includes OIDC token):
+   ```bash
+   vercel env pull
+   ```
+
+Note: OIDC tokens are valid for 12 hours. Re-run `vercel env pull` when expired.
 
 ### Model Selection
 

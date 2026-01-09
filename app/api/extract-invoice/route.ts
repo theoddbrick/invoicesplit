@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { aiGateway, MODEL_NAME } from "@/lib/ai";
+import { MODEL_NAME } from "@/lib/ai";
 import * as pdfjsLib from "pdfjs-dist";
 
 // Configure PDF.js worker
@@ -90,8 +90,12 @@ Please respond ONLY with a valid JSON object in this exact format (no additional
 
 If a field cannot be found, use an empty string "". Be precise and extract exact values from the invoice.`;
 
+    // When you specify a model id as a plain string, the AI SDK will
+    // automatically use the Vercel AI Gateway provider to route the request.
+    // The AI Gateway provider looks for the API key in the AI_GATEWAY_API_KEY
+    // environment variable by default.
     const { text } = await generateText({
-      model: aiGateway(MODEL_NAME),
+      model: MODEL_NAME, // Pass model name as string - AI SDK auto-routes via AI Gateway
       prompt: prompt,
       temperature: 0.1,
       maxTokens: 500,

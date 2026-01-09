@@ -1,13 +1,8 @@
-import { createOpenAI } from "@ai-sdk/openai";
-
-// Configure Vercel AI Gateway
-// Authentication is handled via AI_GATEWAY_API_KEY environment variable
-// The AI Gateway automatically routes requests to the appropriate provider
-
-export const aiGateway = createOpenAI({
-  apiKey: process.env.AI_GATEWAY_API_KEY || "",
-  baseURL: "https://gateway.vercel.com/v1",
-});
+// Vercel AI Gateway Configuration
+// When you specify a model id as a plain string, the AI SDK automatically
+// uses the Vercel AI Gateway provider to route the request.
+// The AI Gateway provider looks for the API key in the AI_GATEWAY_API_KEY
+// environment variable by default.
 
 // Model format: provider/model-name
 // Examples: 

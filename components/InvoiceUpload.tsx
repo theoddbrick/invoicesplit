@@ -3,14 +3,14 @@
 import { useRef, useState } from "react";
 
 interface InvoiceUploadProps {
-  onFileUpload: (file: File) => void;
+  onFilesUpload: (files: File[]) => void;
   isLoading: boolean;
 }
 
-export default function InvoiceUpload({ onFileUpload, isLoading }: InvoiceUploadProps) {
+export default function InvoiceUpload({ onFilesUpload, isLoading }: InvoiceUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -27,25 +27,37 @@ export default function InvoiceUpload({ onFileUpload, isLoading }: InvoiceUpload
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFiles(Array.from(e.target.files));
     }
   };
 
-  const handleFile = (file: File) => {
-    if (file.type === "application/pdf") {
-      setSelectedFile(file);
-      onFileUpload(file);
-    } else {
-      alert("Please upload a PDF file");
+  const handleFiles = (files: File[]) => {
+    const pdfFiles = files.filter(file => file.type === "application/pdf");
+    
+    if (pdfFiles.length === 0) {
+      alert("Please upload PDF files only");
+      return;
     }
+
+    if (pdfFiles.length !== files.length) {
+      alert(`${files.length - pdfFiles.length} non-PDF files were skipped`);
+    }
+
+    if (pdfFiles.length > 100) {
+      alert("Maximum 100 files allowed. Only the first 100 will be processed.");
+      pdfFiles.splice(100);
+    }
+
+    setSelectedFiles(pdfFiles);
+    onFilesUpload(pdfFiles);
   };
 
   const handleClick = () => {
@@ -71,6 +83,7 @@ export default function InvoiceUpload({ onFileUpload, isLoading }: InvoiceUpload
           type="file"
           className="hidden"
           accept=".pdf"
+          multiple
           onChange={handleChange}
           disabled={isLoading}
         />
@@ -94,7 +107,9 @@ export default function InvoiceUpload({ onFileUpload, isLoading }: InvoiceUpload
 
           <div>
             <p className="text-lg font-medium text-gray-700 dark:text-gray-200">
-              {selectedFile ? selectedFile.name : "Drop your invoice PDF here"}
+              {selectedFiles.length > 0 
+                ? `${selectedFiles.length} PDF${selectedFiles.length > 1 ? 's' : ''} selected` 
+                : "Drop your invoice PDFs here"}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               or click to browse
@@ -102,7 +117,7 @@ export default function InvoiceUpload({ onFileUpload, isLoading }: InvoiceUpload
           </div>
 
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            PDF files only, up to 10MB
+            PDF files only, up to 100 files, 10MB each
           </p>
         </div>
       </div>

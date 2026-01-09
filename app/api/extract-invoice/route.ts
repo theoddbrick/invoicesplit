@@ -1,45 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { qwenClient, MODEL_NAME } from "@/lib/ai";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-
-// Configure PDF.js worker for Node.js environment
-if (typeof window === "undefined") {
-  // Disable worker in Node.js - use synchronous processing
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-}
+import pdfParse from "pdf-parse";
 
 export const maxDuration = 60; // Set max duration to 60 seconds for AI processing
 
 async function extractTextFromPDF(buffer: ArrayBuffer): Promise<string> {
   try {
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(buffer),
-      useSystemFonts: true,
-      standardFontDataUrl: undefined,
-      useWorkerFetch: false,
-      isEvalSupported: false,
-      disableAutoFetch: false,
-      disableStream: false,
-    });
+    // Convert ArrayBuffer to Buffer for pdf-parse
+    const pdfBuffer = Buffer.from(buffer);
     
-    const pdf = await loadingTask.promise;
-    let fullText = "";
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => {
-          // Handle both string items and object items with 'str' property
-          if (typeof item === 'string') return item;
-          return item.str || '';
-        })
-        .join(" ");
-      fullText += pageText + "\n";
+    // Use pdf-parse which works better in Node.js environment
+    const data = await pdfParse(pdfBuffer);
+    
+    if (!data.text || data.text.trim().length === 0) {
+      throw new Error("No text content found in PDF");
     }
-
-    return fullText.trim();
+    
+    return data.text.trim();
   } catch (error) {
     console.error("PDF extraction error:", error);
     throw new Error(`Failed to extract text from PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);

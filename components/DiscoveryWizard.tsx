@@ -142,12 +142,31 @@ type Step = "intent" | "discovering" | "review" | "refine";
 export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate }: DiscoveryWizardProps) {
   const isEditMode = !!existingTemplate;
   
-  // Initialize state - edit mode starts at intent too (allows re-upload)
-  const [step, setStep] = useState<Step>("intent");
+  // Initialize state - edit mode goes directly to review, discovery starts at intent
+  const [step, setStep] = useState<Step>(isEditMode ? "review" : "intent");
   const [userIntent, setUserIntent] = useState(existingTemplate?.name || existingTemplate?.description || "");
   const [sampleFiles, setSampleFiles] = useState<File[]>([]);
   const [sampleFileObjects, setSampleFileObjects] = useState<File[]>([]); // Keep File objects for PDF preview
-  const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>([]);
+  
+  // If editing, load existing fields immediately
+  const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>(
+    isEditMode && existingTemplate ? existingTemplate.fields.map(f => ({
+      suggestedName: f.name,
+      suggestedKey: f.key,
+      suggestedType: f.type,
+      foundInSamples: 0,
+      sampleValues: [],
+      confidence: 90,
+      suggestedDescription: f.description,
+      enabled: true,
+      extractionHint: "",
+      formatRule: "",
+      dateFormat: f.formatOptions?.dateFormat || "YYYY-MM-DD",
+      currencyFormat: f.formatOptions?.currencyFormat || "decimal",
+      numberFormat: f.formatOptions?.numberFormat || "plain",
+      currencySymbol: f.formatOptions?.currencySymbol
+    })) : []
+  );
   const [sampleTexts, setSampleTexts] = useState<SampleText[]>([]);
   const [currentSampleIndex, setCurrentSampleIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -484,34 +503,25 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
 
                 {/* Split View: Document Preview + Fields Table */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left: PDF Document Preview */}
-                  {sampleFileObjects[currentSampleIndex] && (
+                  {/* Left: Document Preview with Highlights */}
+                  {sampleTexts[currentSampleIndex] && (
                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                       <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                           </svg>
-                          PDF Preview
+                          Document Preview
                         </p>
                       </div>
-                      <div className="h-[500px] overflow-hidden">
-                        <PdfViewerWithHighlights
-                          file={sampleFileObjects[currentSampleIndex]}
-                          fileName={sampleTexts[currentSampleIndex]?.fileName || ""}
-                          highlights={discoveredFields.map(f => ({
-                            fieldKey: f.suggestedKey,
-                            fieldName: f.suggestedName,
-                            value: f.sampleValues.find(v => v.fileName === sampleTexts[currentSampleIndex]?.fileName)?.value || "",
-                            enabled: f.enabled
-                          }))}
-                          activeFieldKey={highlightedFieldKey}
-                          onHighlightClick={(fieldKey) => {
-                            setHighlightedFieldKey(fieldKey);
-                            const element = document.getElementById(`field-${fieldKey}`);
-                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }}
-                        />
+                      <div className="h-[500px] overflow-y-auto bg-white dark:bg-gray-800 p-4 font-mono text-xs leading-relaxed">
+                        {renderHighlightedText(
+                          sampleTexts[currentSampleIndex].text,
+                          discoveredFields,
+                          currentSampleIndex,
+                          highlightedFieldKey,
+                          setHighlightedFieldKey
+                        )}
                       </div>
                     </div>
                   )}

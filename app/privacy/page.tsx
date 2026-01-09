@@ -190,18 +190,12 @@ export default function PrivacyPage() {
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Source Code Audit</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                  Our code is 100% open source:
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Code Audit</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Our application code contains zero file write operations, zero database connections, 
+                  and zero storage calls. All processing is done in ephemeral serverless functions that 
+                  automatically destroy all data upon completion.
                 </p>
-                <a 
-                  href="https://github.com/theoddbrick/invoicesplit"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm"
-                >
-                  github.com/theoddbrick/invoicesplit
-                </a>
               </div>
             </div>
 
@@ -277,22 +271,15 @@ export default function PrivacyPage() {
               </div>
             </div>
 
-            {/* Contact */}
+            {/* Guarantee */}
             <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-6 mt-8">
               <h3 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">
-                Questions or Concerns?
+                Our Privacy Guarantee
               </h3>
               <p className="text-sm text-indigo-800 dark:text-indigo-200">
-                Review our open source code on{" "}
-                <a 
-                  href="https://github.com/theoddbrick/invoicesplit" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-indigo-600 dark:hover:text-indigo-300"
-                >
-                  GitHub
-                </a>
-                {" "}or contact us with any privacy questions.
+                We guarantee that your invoice files are processed exclusively in temporary memory and 
+                are permanently deleted within seconds of processing. This is enforced by our serverless 
+                architecture which physically cannot retain data between requests.
               </p>
             </div>
           </div>

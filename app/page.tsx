@@ -161,10 +161,6 @@ export default function Home() {
             <a 
               href="/privacy" 
               className="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 underline"
-              onClick={(e) => {
-                e.preventDefault();
-                window.open('https://github.com/theoddbrick/invoicesplit/blob/main/PRIVACY.md', '_blank');
-              }}
             >
               Learn more
             </a>

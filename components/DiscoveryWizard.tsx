@@ -3,6 +3,95 @@
 import { useState } from "react";
 import { ExtractionTemplate, ExtractionField, FieldType } from "@/lib/templates";
 
+// Helper function to render text with clickable highlighted fields
+function renderHighlightedText(
+  fullText: string,
+  fields: DiscoveredField[],
+  sampleIndex: number,
+  highlightedKey: string | null,
+  onFieldClick: (fieldKey: string) => void
+) {
+  if (!fullText) return <p className="text-gray-500">No text available</p>;
+
+  // Find all field values in the text
+  const highlights: Array<{ start: number; end: number; fieldKey: string; fieldName: string; value: string }> = [];
+
+  fields.forEach(field => {
+    const sampleValue = field.sampleValues[sampleIndex]?.value;
+    if (!sampleValue || sampleValue.length < 2) return;
+
+    // Find all occurrences of this value in the text
+    let searchIndex = 0;
+    while (searchIndex < fullText.length) {
+      const index = fullText.toLowerCase().indexOf(sampleValue.toLowerCase(), searchIndex);
+      if (index === -1) break;
+
+      highlights.push({
+        start: index,
+        end: index + sampleValue.length,
+        fieldKey: field.suggestedKey,
+        fieldName: field.suggestedName,
+        value: sampleValue
+      });
+
+      searchIndex = index + sampleValue.length;
+    }
+  });
+
+  // Sort by position
+  highlights.sort((a, b) => a.start - b.start);
+
+  // Render with highlights
+  const elements: React.ReactElement[] = [];
+  let lastIndex = 0;
+
+  highlights.forEach((highlight, idx) => {
+    // Add text before highlight
+    if (highlight.start > lastIndex) {
+      elements.push(
+        <span key={`text-${lastIndex}`}>
+          {fullText.substring(lastIndex, highlight.start)}
+        </span>
+      );
+    }
+
+    // Add highlighted text (clickable)
+    const isActive = highlightedKey === highlight.fieldKey;
+    elements.push(
+      <mark
+        key={`highlight-${idx}`}
+        onClick={() => {
+          onFieldClick(highlight.fieldKey);
+          // Scroll to field in table
+          const element = document.getElementById(`field-${highlight.fieldKey}`);
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+        className={`cursor-pointer transition-colors px-1 rounded ${
+          isActive
+            ? 'bg-yellow-300 dark:bg-yellow-600 text-gray-900 dark:text-white font-semibold ring-2 ring-yellow-500'
+            : 'bg-yellow-100 dark:bg-yellow-900/40 text-gray-900 dark:text-yellow-100 hover:bg-yellow-200 dark:hover:bg-yellow-800/60'
+        }`}
+        title={`Click to jump to "${highlight.fieldName}" field`}
+      >
+        {fullText.substring(highlight.start, highlight.end)}
+      </mark>
+    );
+
+    lastIndex = highlight.end;
+  });
+
+  // Add remaining text
+  if (lastIndex < fullText.length) {
+    elements.push(
+      <span key={`text-${lastIndex}`}>
+        {fullText.substring(lastIndex)}
+      </span>
+    );
+  }
+
+  return <div className="whitespace-pre-wrap">{elements}</div>;
+}
+
 interface DiscoveredField {
   suggestedName: string;
   suggestedKey: string;
@@ -14,6 +103,11 @@ interface DiscoveredField {
   enabled: boolean;
   extractionHint?: string;
   formatRule?: string;
+}
+
+interface SampleText {
+  fileName: string;
+  text: string;
 }
 
 interface DiscoveryWizardProps {
@@ -28,9 +122,11 @@ export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizar
   const [userIntent, setUserIntent] = useState("");
   const [sampleFiles, setSampleFiles] = useState<File[]>([]);
   const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>([]);
+  const [sampleTexts, setSampleTexts] = useState<SampleText[]>([]);
   const [currentSampleIndex, setCurrentSampleIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingField, setEditingField] = useState<number | null>(null);
+  const [highlightedFieldKey, setHighlightedFieldKey] = useState<string | null>(null);
 
   const handleFilesSelected = (files: FileList | null) => {
     if (!files) return;
@@ -81,6 +177,7 @@ export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizar
       }));
 
       setDiscoveredFields(fields);
+      setSampleTexts(result.sampleTexts || []);
       setStep("review");
     } catch (error) {
       console.error("Discovery error:", error);
@@ -256,7 +353,7 @@ export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizar
               </div>
             )}
 
-            {/* Step 3: Review Discovered Fields */}
+            {/* Step 3: Review Discovered Fields with Document Preview */}
             {step === "review" && discoveredFields.length > 0 && (
               <div className="space-y-6">
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -264,8 +361,199 @@ export default function DiscoveryWizard({ onComplete, onCancel }: DiscoveryWizar
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    AI discovered {discoveredFields.length} fields! Review and refine them below.
+                    AI discovered {discoveredFields.length} fields! Review document samples and refine fields.
                   </p>
+                </div>
+
+                {/* Sample Navigation */}
+                {sampleTexts.length > 0 && (
+                  <div className="flex items-center justify-between p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <button
+                      onClick={() => setCurrentSampleIndex(Math.max(0, currentSampleIndex - 1))}
+                      disabled={currentSampleIndex === 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Previous
+                    </button>
+
+                    <div className="text-center">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        Sample {currentSampleIndex + 1} of {sampleTexts.length}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {sampleTexts[currentSampleIndex]?.fileName}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentSampleIndex(Math.min(sampleTexts.length - 1, currentSampleIndex + 1))}
+                      disabled={currentSampleIndex >= sampleTexts.length - 1}
+                      className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Split View: Document Preview + Fields Table */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Left: Document Preview */}
+                  {sampleTexts[currentSampleIndex] && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                          </svg>
+                          Document Preview
+                        </p>
+                      </div>
+                      <div className="p-4 h-[500px] overflow-y-auto bg-white dark:bg-gray-800 font-mono text-xs leading-relaxed">
+                        {renderHighlightedText(
+                          sampleTexts[currentSampleIndex].text,
+                          discoveredFields,
+                          currentSampleIndex,
+                          highlightedFieldKey,
+                          setHighlightedFieldKey
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Right: Fields Table */}
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Extracted Fields
+                      </p>
+                    </div>
+                    <div className="h-[500px] overflow-y-auto">
+                      {discoveredFields.map((field, index) => (
+                        <div
+                          key={index}
+                          id={`field-${field.suggestedKey}`}
+                          className={`p-4 border-b border-gray-200 dark:border-gray-700 transition-colors ${
+                            highlightedFieldKey === field.suggestedKey
+                              ? 'bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-l-yellow-500'
+                              : field.enabled
+                              ? 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                              : 'bg-gray-50 dark:bg-gray-800/50 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={field.enabled}
+                              onChange={() => toggleField(index)}
+                              className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  {editingField === index ? (
+                                    <input
+                                      type="text"
+                                      value={field.suggestedName}
+                                      onChange={(e) => updateField(index, { suggestedName: e.target.value })}
+                                      className="px-2 py-1 text-sm font-semibold border border-indigo-400 rounded focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                      {field.suggestedName}
+                                    </span>
+                                  )}
+                                  <select
+                                    value={field.suggestedType}
+                                    onChange={(e) => updateField(index, { suggestedType: e.target.value as FieldType })}
+                                    className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 dark:bg-gray-700 dark:text-white"
+                                  >
+                                    <option value="text">Text</option>
+                                    <option value="number">Number</option>
+                                    <option value="date">Date</option>
+                                    <option value="currency">Currency</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                    field.foundInSamples === sampleFiles.length
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                      : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                                  }`}>
+                                    {field.foundInSamples}/{sampleFiles.length}
+                                  </span>
+                                  <button
+                                    onClick={() => setEditingField(editingField === index ? null : index)}
+                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-medium"
+                                  >
+                                    {editingField === index ? "Done" : "Edit"}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Sample Value for Current Document */}
+                              <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded">
+                                <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">Value:</span>
+                                <span className="font-mono">
+                                  {field.sampleValues.find(v => v.fileName === sampleTexts[currentSampleIndex]?.fileName)?.value || "—"}
+                                </span>
+                              </div>
+
+                              {/* Editing Panel */}
+                              {editingField === index && (
+                                <div className="mt-3 space-y-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      Description
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={field.suggestedDescription}
+                                      onChange={(e) => updateField(index, { suggestedDescription: e.target.value })}
+                                      className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      Extraction Hint
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={field.extractionHint || ""}
+                                      onChange={(e) => updateField(index, { extractionHint: e.target.value })}
+                                      placeholder="e.g., 'Look in header section'"
+                                      className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      Format Rule
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={field.formatRule || ""}
+                                      onChange={(e) => updateField(index, { formatRule: e.target.value })}
+                                      placeholder="e.g., 'Decimal without currency'"
+                                      className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Fields Table */}

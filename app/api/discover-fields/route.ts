@@ -71,14 +71,16 @@ export async function POST(request: NextRequest) {
       files.slice(0, 10).map(async (file) => {
         try {
           const arrayBuffer = await file.arrayBuffer();
-          const text = await extractTextFromPDF(arrayBuffer);
+          const fullText = await extractTextFromPDF(arrayBuffer);
           return {
             fileName: file.name,
-            text: text.substring(0, 3000) // Limit text for discovery
+            fullText: fullText, // Keep full text for preview
+            text: fullText.substring(0, 3000) // Limited text for AI analysis
           };
         } catch (error) {
           return {
             fileName: file.name,
+            fullText: "",
             text: "",
             error: error instanceof Error ? error.message : "Failed to extract"
           };
@@ -174,7 +176,11 @@ Return 5-15 fields maximum. Focus on fields that appear in multiple samples.`;
       success: true,
       discoveredFields,
       samplesAnalyzed: validSamples.length,
-      userIntent
+      userIntent,
+      sampleTexts: validSamples.map(s => ({
+        fileName: s.fileName,
+        text: s.fullText || s.text
+      }))
     });
 
   } catch (error) {

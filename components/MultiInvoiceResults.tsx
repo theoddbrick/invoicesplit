@@ -132,12 +132,14 @@ export default function MultiInvoiceResults({ results, activeTemplate, onReset }
   const [includeHeaders, setIncludeHeaders] = useState(false);
   const [includeFilename, setIncludeFilename] = useState(false);
 
-  // Initialize field order from template
+  // Initialize field order from template (only enabled fields)
   useEffect(() => {
-    const fields = activeTemplate.fields.map(f => ({
-      key: f.key,
-      label: f.name
-    }));
+    const fields = activeTemplate.fields
+      .filter(f => f.enabled !== false) // Only show enabled fields
+      .map(f => ({
+        key: f.key,
+        label: f.name
+      }));
     setFieldOrder(fields);
     setHasAutoSelected(false); // Reset auto-selection when template changes
   }, [activeTemplate.id]);

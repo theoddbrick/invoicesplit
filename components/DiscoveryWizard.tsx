@@ -1,24 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import { ExtractionTemplate, ExtractionField, FieldType, DateFormat, CurrencyFormat, NumberFormat } from "@/lib/templates";
 
-// Load PDF viewer only on client-side (DOMMatrix not available in SSR)
-const PdfViewerWithHighlights = dynamic(
-  () => import("./PdfViewerWithHighlights"),
-  { 
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full bg-white dark:bg-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading PDF viewer...</p>
-        </div>
-      </div>
-    )
-  }
-);
+// TODO: Add PDF viewer when react-pdf configuration is resolved
+// For now using text preview with clickable highlights
 
 // Helper function to render text with clickable highlighted fields
 function renderHighlightedText(
@@ -146,7 +132,6 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
   const [step, setStep] = useState<Step>(isEditMode ? "review" : "intent");
   const [userIntent, setUserIntent] = useState(existingTemplate?.name || existingTemplate?.description || "");
   const [sampleFiles, setSampleFiles] = useState<File[]>([]);
-  const [sampleFileObjects, setSampleFileObjects] = useState<File[]>([]); // Keep File objects for PDF preview
   
   // If editing, load existing fields immediately (ALL fields, both enabled and disabled)
   const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>(
@@ -177,12 +162,10 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
     if (!files) return;
     const pdfFiles = Array.from(files).filter(f => f.type === "application/pdf");
     setSampleFiles(prev => [...prev, ...pdfFiles].slice(0, 100));
-    setSampleFileObjects(prev => [...prev, ...pdfFiles].slice(0, 100));
   };
 
   const removeFile = (index: number) => {
     setSampleFiles(files => files.filter((_, i) => i !== index));
-    setSampleFileObjects(files => files.filter((_, i) => i !== index));
   };
 
   const startDiscovery = async () => {
@@ -234,7 +217,7 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
             sampleValues: rediscovered?.sampleValues || [],
             confidence: rediscovered?.confidence || 50,
             suggestedDescription: f.description,
-            enabled: true,
+            enabled: f.enabled ?? true, // Preserve existing enabled/disabled state
             extractionHint: "",
             formatRule: "",
             dateFormat: f.formatOptions?.dateFormat,
@@ -505,30 +488,25 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
 
                 {/* Split View: Document Preview + Fields Table */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left: PDF Document Preview */}
-                  {sampleFileObjects[currentSampleIndex] && (
+                  {/* Left: Document Text Preview with Highlights */}
+                  {sampleTexts[currentSampleIndex] && (
                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                       <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                           </svg>
-                          PDF Document Preview
+                          Document Preview (Text with Highlights)
                         </p>
                       </div>
-                      <div className="h-[500px]">
-                        <PdfViewerWithHighlights
-                          file={sampleFileObjects[currentSampleIndex]}
-                          fileName={sampleFiles[currentSampleIndex]?.name || "Document"}
-                          highlights={discoveredFields.map(f => ({
-                            fieldKey: f.suggestedKey,
-                            fieldName: f.suggestedName,
-                            value: f.sampleValues[currentSampleIndex]?.value || "",
-                            enabled: f.enabled
-                          }))}
-                          activeFieldKey={highlightedFieldKey}
-                          onHighlightClick={setHighlightedFieldKey}
-                        />
+                      <div className="h-[500px] overflow-y-auto bg-white dark:bg-gray-800 p-4 font-mono text-xs leading-relaxed">
+                        {renderHighlightedText(
+                          sampleTexts[currentSampleIndex].text,
+                          discoveredFields,
+                          currentSampleIndex,
+                          highlightedFieldKey,
+                          setHighlightedFieldKey
+                        )}
                       </div>
                     </div>
                   )}

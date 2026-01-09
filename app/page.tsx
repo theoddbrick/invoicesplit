@@ -24,6 +24,7 @@ export default function Home() {
   const [invoiceResults, setInvoiceResults] = useState<ExtractionResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<BatchProgress>({ completed: 0, total: 0 });
+  const [uploadKey, setUploadKey] = useState(0); // Key to force InvoiceUpload re-mount on reset
 
   // Discovery wizard state
   const [showDiscoveryWizard, setShowDiscoveryWizard] = useState(false);
@@ -120,6 +121,7 @@ export default function Home() {
     setInvoiceResults([]);
     setIsProcessing(false);
     setProgress({ completed: 0, total: 0 });
+    setUploadKey(prev => prev + 1); // Force InvoiceUpload to re-mount and clear its state
   };
 
   return (
@@ -199,7 +201,11 @@ export default function Home() {
               )}
 
               {activeTemplate && (
-                <InvoiceUpload onFilesUpload={handleFilesUpload} isLoading={isProcessing} />
+                <InvoiceUpload 
+                  key={uploadKey} 
+                  onFilesUpload={handleFilesUpload} 
+                  isLoading={isProcessing} 
+                />
               )}
             </>
           )}

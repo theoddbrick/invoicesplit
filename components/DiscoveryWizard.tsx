@@ -142,25 +142,12 @@ type Step = "intent" | "discovering" | "review" | "refine";
 export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate }: DiscoveryWizardProps) {
   const isEditMode = !!existingTemplate;
   
-  // Initialize state from existing template if editing
-  const [step, setStep] = useState<Step>(isEditMode ? "review" : "intent");
-  const [userIntent, setUserIntent] = useState(existingTemplate?.description || "");
+  // Initialize state - edit mode starts at intent too (allows re-upload)
+  const [step, setStep] = useState<Step>("intent");
+  const [userIntent, setUserIntent] = useState(existingTemplate?.name || existingTemplate?.description || "");
   const [sampleFiles, setSampleFiles] = useState<File[]>([]);
   const [sampleFileObjects, setSampleFileObjects] = useState<File[]>([]); // Keep File objects for PDF preview
-  const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>(
-    isEditMode ? existingTemplate!.fields.map(f => ({
-      suggestedName: f.name,
-      suggestedKey: f.key,
-      suggestedType: f.type,
-      foundInSamples: 0,
-      sampleValues: [],
-      confidence: 90,
-      suggestedDescription: f.description,
-      enabled: true,
-      extractionHint: "",
-      formatRule: ""
-    })) : []
-  );
+  const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>([]);
   const [sampleTexts, setSampleTexts] = useState<SampleText[]>([]);
   const [currentSampleIndex, setCurrentSampleIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -210,12 +197,44 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
 
       const result = await response.json();
       
-      const fields: DiscoveredField[] = result.discoveredFields.map((f: any) => ({
-        ...f,
-        enabled: true, // All fields enabled by default
-        extractionHint: "",
-        formatRule: ""
-      }));
+      // If editing existing template, merge discovered fields with existing
+      let fields: DiscoveredField[];
+      if (isEditMode && existingTemplate) {
+        // Map existing template fields back to discovered format
+        fields = existingTemplate.fields.map(f => {
+          // Find if this field was rediscovered
+          const rediscovered = result.discoveredFields.find((df: any) => 
+            df.suggestedKey === f.key || df.suggestedName === f.name
+          );
+          
+          return {
+            suggestedName: f.name,
+            suggestedKey: f.key,
+            suggestedType: f.type,
+            foundInSamples: rediscovered?.foundInSamples || 0,
+            sampleValues: rediscovered?.sampleValues || [],
+            confidence: rediscovered?.confidence || 50,
+            suggestedDescription: f.description,
+            enabled: true,
+            extractionHint: "",
+            formatRule: "",
+            dateFormat: f.formatOptions?.dateFormat,
+            currencyFormat: f.formatOptions?.currencyFormat,
+            numberFormat: f.formatOptions?.numberFormat,
+            currencySymbol: f.formatOptions?.currencySymbol
+          };
+        });
+      } else {
+        fields = result.discoveredFields.map((f: any) => ({
+          ...f,
+          enabled: true,
+          extractionHint: "",
+          formatRule: "",
+          dateFormat: "YYYY-MM-DD" as DateFormat,
+          currencyFormat: "decimal" as CurrencyFormat,
+          numberFormat: "plain" as NumberFormat
+        }));
+      }
 
       setDiscoveredFields(fields);
       setSampleTexts(result.sampleTexts || []);
@@ -308,14 +327,27 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
             {/* Step 1: User Intent + Samples */}
             {step === "intent" && (
               <div className="space-y-6">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
-                    AI will analyze your sample documents and automatically discover fields to extract
-                  </p>
-                </div>
+                {isEditMode && (
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      Editing existing profile. Upload new samples to rediscover fields or keep current configuration.
+                    </p>
+                  </div>
+                )}
+                
+                {!isEditMode && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      AI will analyze your sample documents and automatically discover fields to extract
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

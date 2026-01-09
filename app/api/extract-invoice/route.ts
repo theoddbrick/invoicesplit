@@ -129,6 +129,15 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error("Failed to parse enabledFields:", error);
       }
+    } else {
+      // If no explicit enabledFields provided, filter based on template field's enabled property
+      const explicitlyEnabledFields = template.fields
+        .filter(f => f.enabled !== false) // enabled is true or undefined (default true)
+        .map(f => f.key);
+      
+      if (explicitlyEnabledFields.length > 0) {
+        enabledFields = new Set(explicitlyEnabledFields);
+      }
     }
     
     if (customInstructionsJson) {

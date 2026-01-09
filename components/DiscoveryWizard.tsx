@@ -148,7 +148,7 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
   const [sampleFiles, setSampleFiles] = useState<File[]>([]);
   const [sampleFileObjects, setSampleFileObjects] = useState<File[]>([]); // Keep File objects for PDF preview
   
-  // If editing, load existing fields immediately
+  // If editing, load existing fields immediately (ALL fields, both enabled and disabled)
   const [discoveredFields, setDiscoveredFields] = useState<DiscoveredField[]>(
     isEditMode && existingTemplate ? existingTemplate.fields.map(f => ({
       suggestedName: f.name,
@@ -158,7 +158,7 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
       sampleValues: [],
       confidence: 90,
       suggestedDescription: f.description,
-      enabled: true,
+      enabled: f.enabled ?? true, // Preserve enabled/disabled state
       extractionHint: "",
       formatRule: "",
       dateFormat: f.formatOptions?.dateFormat || "YYYY-MM-DD",
@@ -287,18 +287,20 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
       return;
     }
 
+    // Save ALL fields (both enabled and disabled) to preserve discovery data
     const template: ExtractionTemplate = {
       id: existingTemplate?.id || `profile-${Date.now()}`,
       name: existingTemplate?.name || userIntent.substring(0, 50) || "Custom Extraction",
-      description: existingTemplate?.description || `Discovered ${enabledFields.length} fields from ${sampleFiles.length} samples`,
+      description: existingTemplate?.description || `Discovered ${discoveredFields.length} fields (${enabledFields.length} enabled) from ${sampleFiles.length} samples`,
       documentType: existingTemplate?.documentType || "document",
-      fields: enabledFields.map((f, i) => ({
+      fields: discoveredFields.map((f, i) => ({
         id: existingTemplate?.fields[i]?.id || `field-${i}`,
         name: f.suggestedName,
         key: f.suggestedKey,
         description: f.suggestedDescription + (f.extractionHint ? ` ${f.extractionHint}` : ""),
         required: f.foundInSamples === sampleFiles.length,
         type: f.suggestedType,
+        enabled: f.enabled, // Preserve enabled/disabled state
         formatOptions: {
           dateFormat: f.dateFormat,
           currencyFormat: f.currencyFormat,
@@ -503,25 +505,30 @@ export default function DiscoveryWizard({ onComplete, onCancel, existingTemplate
 
                 {/* Split View: Document Preview + Fields Table */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* Left: Document Preview with Highlights */}
-                  {sampleTexts[currentSampleIndex] && (
+                  {/* Left: PDF Document Preview */}
+                  {sampleFileObjects[currentSampleIndex] && (
                     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                       <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 border-b border-gray-200 dark:border-gray-600">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                           </svg>
-                          Document Preview
+                          PDF Document Preview
                         </p>
                       </div>
-                      <div className="h-[500px] overflow-y-auto bg-white dark:bg-gray-800 p-4 font-mono text-xs leading-relaxed">
-                        {renderHighlightedText(
-                          sampleTexts[currentSampleIndex].text,
-                          discoveredFields,
-                          currentSampleIndex,
-                          highlightedFieldKey,
-                          setHighlightedFieldKey
-                        )}
+                      <div className="h-[500px]">
+                        <PdfViewerWithHighlights
+                          file={sampleFileObjects[currentSampleIndex]}
+                          fileName={sampleFiles[currentSampleIndex]?.name || "Document"}
+                          highlights={discoveredFields.map(f => ({
+                            fieldKey: f.suggestedKey,
+                            fieldName: f.suggestedName,
+                            value: f.sampleValues[currentSampleIndex]?.value || "",
+                            enabled: f.enabled
+                          }))}
+                          activeFieldKey={highlightedFieldKey}
+                          onHighlightClick={setHighlightedFieldKey}
+                        />
                       </div>
                     </div>
                   )}

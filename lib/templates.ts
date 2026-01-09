@@ -22,6 +22,7 @@ export interface ExtractionField {
   type: FieldType;          // Data type for validation
   validation?: string;       // Optional regex pattern
   formatOptions?: FieldFormatOptions;  // User-configurable format preferences
+  enabled?: boolean;         // If false, field is not extracted (default: true)
 }
 
 export interface ExtractionTemplate {

@@ -70,8 +70,8 @@ Your Browser                    Our Server                  AI Service
 #### Alibaba Cloud Model Studio
 - **What's sent**: Extracted text content only (NOT the PDF file)
 - **Purpose**: AI processing to extract invoice fields
-- **Retention**: Per Alibaba Cloud's data retention policies
-- **API Key**: Your own key - you control the AI service
+- **Service provider**: Managed by this application's operator
+- **Your data**: Text is processed and immediately discarded by the AI service per their privacy policy
 
 #### Vercel Hosting
 - **Logs**: Standard HTTP request logs (no file content)

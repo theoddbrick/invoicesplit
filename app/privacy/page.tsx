@@ -210,7 +210,7 @@ export default function PrivacyPage() {
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                   <strong>What&apos;s sent:</strong> Extracted text content only (NOT the PDF file)<br/>
                   <strong>Purpose:</strong> AI processing to extract invoice fields<br/>
-                  <strong>Your control:</strong> You provide your own API key
+                  <strong>Service provider:</strong> Managed by this application
                 </p>
               </div>
 

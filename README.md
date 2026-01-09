@@ -22,6 +22,9 @@ An intelligent web application built with Next.js 16 and Vercel AI Gateway that 
 
 ## Getting Started
 
+**Important:** This guide is for developers/service providers who want to host this application. 
+Your end users will NOT need API keys - you provide the service for them.
+
 ### 1. Install Dependencies
 
 ```bash
@@ -32,19 +35,16 @@ pnpm install
 yarn install
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Environment Variables (Service Provider Only)
 
-Create a `.env.local` file in the root directory with your Alibaba Cloud Model Studio API key:
+Create a `.env.local` file with **your** Alibaba Cloud Model Studio API key:
 
 ```env
 MODEL_STUDIO_KEY=sk-your_dashscope_api_key_here
 ```
 
-Alternative environment variable name (also supported):
-
-```env
-DASHSCOPE_API_KEY=sk-your_dashscope_api_key_here
-```
+**⚠️ Important:** This API key is YOUR key as the service provider. Never share it or commit it to git. 
+It's already protected in `.gitignore`.
 
 ### 3. Run Development Server
 
@@ -71,21 +71,29 @@ vercel deploy
 
 Or connect your GitHub repository to Vercel for automatic deployments.
 
-## Alibaba Cloud Model Studio Setup
+## Alibaba Cloud Model Studio Setup (For Developers/Hosts)
 
 This project uses [Alibaba Cloud Model Studio (DashScope)](https://www.alibabacloud.com/help/en/model-studio/) with the Qwen-Max model for invoice extraction.
 
-### Get Your API Key
+**Note:** As the service provider, **you** obtain and configure the API key. Your end users do not need their own keys.
+
+### Get Your API Key (Service Provider Only)
 
 1. Go to [Alibaba Cloud Model Studio](https://bailian.console.aliyun.com/)
 2. Sign in or create an account
 3. Navigate to **API Keys** section
 4. Create a new API key
 5. Copy the generated key (starts with `sk-`)
-6. Add it to your `.env.local` file:
+6. Add it to your `.env.local` file (local) or Vercel environment variables (production):
    ```env
    MODEL_STUDIO_KEY=sk-your_api_key_here
    ```
+
+**For Vercel Production:**
+```bash
+vercel env add MODEL_STUDIO_KEY production
+# Paste your API key when prompted
+```
 
 ### Model Configuration
 
